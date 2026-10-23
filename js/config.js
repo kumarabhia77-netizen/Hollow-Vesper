@@ -11,6 +11,7 @@ const CFG = {
   // Level: sizes are in tiles (1 tile = 16 pixels). Platform = [x, y, width, height optional]
   level: { cols: 80, rows: 17, ground: 15, spawn: [3, 15],
     platforms: [[12, 11, 5], [19, 9, 4], [30, 12, 6], [44, 11, 5], [56, 12, 6], [66, 11, 4]],
+    props: [["shrine",5],["torch",9],["statue",15],["banner",17],["barrel",22],["lantern",29],["torch",34],["bell",38],["lantern",45],["rubble",46],["torch",50],["banner",52],["cage",61],["skull",64],["torch",68],["barrel",70]],
     enemies: [[26, "husk"], [40, "husk"], [58, "husk"], [72, "husk"]] },
   debug: /[?&]debug/.test(location.search)
 };

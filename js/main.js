@@ -37,7 +37,7 @@
     requestAnimationFrame(loop);
     const dt = Math.min((ts - last) / 1000, 0.1); last = ts; acc += dt; time += dt; Render.fps = dt > 0 ? 1 / dt : 0;
     while (acc >= 1 / 60) { step(1 / 60); acc -= 1 / 60; }
-    Render.draw(world, player, enemies, cam, time);
+    if (Render.ready) Render.draw(world, player, enemies, cam, time);
   }
 
   $("start").onclick = () => { reset(); setState("play"); };
@@ -50,4 +50,3 @@
 
   reset(); setState("menu"); requestAnimationFrame(t => { last = t; loop(t); });
 })();
-    
