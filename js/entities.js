@@ -22,3 +22,54 @@ class Player {
       const dir = (Input.right ? 1 : 0) - (Input.left ? 1 : 0);
       this.vx = dir * c.speed * (this.atk >= 0 ? c.atk.moveMul : 1);
       if (dir && this.atk < 0) this.face = dir;
+      if (Input.jumpP) this.buf = c.buffer;
+      if (this.buf > 0 && this.coy > 0) { this.vy = -c.jump; this.buf = 0; this.coy = 0; }
+      if (!Input.jump && this.vy < -120) this.vy += CFG.GRAV * 1.5 * dt;   // release jump early = short hop
+      if (Input.atkP && this.atk < 0) { this.atk = 0; this.hits = new Set(); }
+    }
+    if (this.atk >= 0 && !this.dead) {
+      const a = c.atk; this.atk += dt;
+      if (this.atk >= a.from && this.atk <= a.to) {
+        const box = this.hitbox();
+        for (const e of enemies) if (e.alive() && !this.hits.has(e) && ov(box, e)) { this.hits.add(e); e.damage(a.dmg, this.face, a.knock); } // one hit per swing
+      }
+      if (this.atk >= a.dur) this.atk = -1;
+    }
+    this.vy = Math.min(this.vy + CFG.GRAV * dt, 700); world.move(this, dt);
+  }
+}
+
+class Enemy {
+  constructor(type, x, y) { const d = CFG.enemies[type]; this.d = d;
+    Object.assign(this, { type, w: d.w, h: d.h, x, y, vx: 0, vy: 0, face: -1, hp: d.hp, st: "patrol", t: 0, ground: false, did: false, flash: 0, gone: false }); }
+  alive() { return this.st !== "dead"; }
+  go(s) { this.st = s; this.t = 0; this.did = false; }
+  hitbox() { return { x: this.face > 0 ? this.x + this.w : this.x - this.d.atk.reach, y: this.y + 2, w: this.d.atk.reach, h: this.h - 4 }; }
+  blocked(world) { const T = world.T, tx = Math.floor((this.x + (this.face > 0 ? this.w + 2 : -2)) / T), ty = Math.floor((this.y + this.h + 2) / T);
+    return this.wall || !world.solid(tx, ty); }
+  damage(n, dir, knock) {
+    if (!this.alive()) return;
+    this.hp -= n; this.flash = 0.12; Fx.shake = 0.12; Fx.hitstop = 0.05; spark(this.x + this.w / 2, this.y + 10, "#e8d8b0", 6);
+    if (this.hp <= 0) { this.go("dead"); this.vx = dir * knock * 0.5; this.vy = -100; return; }
+    this.go("hurt"); this.vx = dir * knock; this.vy = -80;
+  }
+  update(dt, world, p) {
+    const d = this.d, a = d.atk; this.t += dt; this.flash = Math.max(0, this.flash - dt);
+    const dx = (p.x + p.w / 2) - (this.x + this.w / 2), dy = p.y - this.y;
+    const see = !p.dead && Math.abs(dx) < d.sight && Math.abs(dy) < 36;
+    switch (this.st) {
+      case "patrol": this.vx = this.face * d.speed; if (this.blocked(world)) this.face *= -1; if (see) this.go("chase"); break;
+      case "chase": this.face = dx > 0 ? 1 : -1; this.vx = this.blocked(world) ? 0 : this.face * d.chase;
+        if (!see && Math.abs(dx) > d.sight * 1.4) this.go("patrol");
+        else if (see && Math.abs(dx) < a.range && Math.abs(dy) < 24) this.go("windup"); break;
+      case "windup": this.vx = 0; if (this.t >= a.windup) this.go("attack"); break;
+      case "attack": this.vx = 0;
+        if (!this.did && !p.dead && ov(this.hitbox(), p)) { this.did = true; p.damage(a.dmg, this.face, a.knock); }
+        if (this.t >= a.active) this.go("recover"); break;
+      case "recover": this.vx = 0; if (this.t >= a.recover) this.go("chase"); break;
+      case "hurt": this.vx *= 0.92; if (this.t >= 0.3) this.go("chase"); break;
+      case "dead": this.vx *= 0.92; if (this.t > 1.2) this.gone = true; break;
+    }
+    this.vy = Math.min(this.vy + CFG.GRAV * dt, 700); world.move(this, dt);
+  }
+}
