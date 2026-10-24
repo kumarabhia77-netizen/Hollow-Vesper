@@ -1,0 +1,38 @@
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;background:#050407;overflow:hidden;overscroll-behavior:none;touch-action:none}
+body{display:flex;align-items:center;justify-content:center;font-family:Georgia,"Times New Roman",serif;color:#d9cfbd}
+#stage{position:relative;width:min(100vw,calc(100dvh*16/9));aspect-ratio:16/9;container-type:size;background:#000}
+#game{width:100%;height:100%;display:block;image-rendering:pixelated}
+.hidden{display:none!important}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.2cqw;background:rgba(8,6,10,.82);text-align:center;padding:4cqw}
+h1{font-size:8cqw;letter-spacing:.3em;font-weight:400;margin:0;color:#e3d6bd;text-shadow:0 0 3cqw #8a2c2c}
+h2{font-size:5cqw;letter-spacing:.15em;font-weight:400;margin:0;color:#e3d6bd}
+p{font-size:2.2cqw;font-style:italic;margin:0;color:#b5a892}
+small{font-size:1.6cqw;color:#8d8374}
+.screen button{font:inherit;font-size:2.6cqw;padding:1cqw 5cqw;background:transparent;color:#e3d6bd;border:1px solid #8a6a52;cursor:pointer}
+.screen button:hover,.screen button:focus-visible{background:#3a1a1c;outline:none}
+#pbtn{position:absolute;top:2cqw;right:2cqw;width:5cqw;height:5cqw;font-size:2cqw;border-radius:50%;background:rgba(20,16,24,.55);border:1px solid rgba(217,207,189,.35);color:#d9cfbd}
+#touch{position:absolute;inset:auto 0 3cqw 0;display:none;justify-content:space-between;padding:0 3cqw;pointer-events:none}
+@media (pointer:coarse){#touch{display:flex}}
+.pad{display:flex;gap:2cqw}
+.pad button{pointer-events:auto;touch-action:none;width:12cqw;height:12cqw;border-radius:50%;background:rgba(20,16,24,.55);border:1px solid rgba(217,207,189,.35);color:#d9cfbd;font:inherit;font-size:2.4cqw}
+#err{position:absolute;left:0;right:0;bottom:0;background:#5a1010;color:#fff;font:1.8cqw monospace;padding:1cqw;user-select:text;-webkit-user-select:text}
+
+/* animated main menu */
+#menu{background:radial-gradient(ellipse at center,rgba(8,6,10,.3),rgba(5,4,8,.92));overflow:hidden}
+#menu h1,#menu p,#menu button,#menu small,#menu .rule{position:relative;z-index:1}
+#menu h1{animation:rise 2.4s ease-out both,pulse 4.5s 2.4s ease-in-out infinite}
+#menu .rule{height:1px;width:0;background:linear-gradient(90deg,transparent,#c8553d,transparent);animation:grow 2s 1s forwards}
+#menu p{opacity:0;animation:fade 1.5s 1.4s forwards}
+#menu small{opacity:0;animation:fade 1.5s 2.8s forwards}
+#menu button{opacity:0;animation:fade 1.2s 2.2s forwards,glow 2.8s 3.4s ease-in-out infinite}
+.ember{position:absolute;bottom:-2cqw;width:.5cqw;height:.5cqw;border-radius:50%;background:#e07a4a;box-shadow:0 0 1cqw #c8553d;opacity:0;pointer-events:none;animation:float linear infinite}
+.screen:not(#menu):not(.hidden){animation:fade .4s both}
+#dead h2{color:#a33a3a;text-shadow:0 0 3cqw #6b1d24;animation:rise 1.6s ease-out both}
+@keyframes rise{from{opacity:0;letter-spacing:.9em;filter:blur(6px)}to{opacity:1;letter-spacing:.3em;filter:blur(0)}}
+@keyframes pulse{50%{text-shadow:0 0 5cqw #c8553d,0 0 1cqw #8a2c2c}}
+@keyframes grow{to{width:40cqw}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes glow{50%{box-shadow:0 0 2cqw #8a2c2c;border-color:#c8553d}}
+@keyframes float{0%{transform:translate(0,0);opacity:0}10%{opacity:.9}100%{transform:translate(var(--dx),-110cqh);opacity:0}}
+@media (prefers-reduced-motion:reduce){.ember{display:none}#menu h1,#menu button{animation:fade 1s both}}
