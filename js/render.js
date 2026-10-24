@@ -1,7 +1,5 @@
 "use strict";
 // Everything that draws. Pictures come from the assets/ folder; swap a PNG to change the look.
-const PS = 0.274, FEET = 137, PCELLS = 11;   // player: scale, feet row in the sheet, frames per sheet
-const TILES = [[9,12],[117,11],[225,11],[333,10],[443,10]];   // stone x3, cracked, moss top
 const PROPS = { lantern: [27,16,42,126,1], torch: [108,23,30,103,0], statue: [161,51,69,88,0], rubble: [245,69,112,74,0], barrel: [372,51,61,82,0],
   cage: [534,0,53,140,1], bell: [608,7,89,136,0], banner: [757,0,68,143,1], skull: [838,69,104,74,0], shrine: [953,5,111,138,0] };
 const LIT = { torch: 1, lantern: 1, shrine: 1 };
@@ -27,11 +25,11 @@ const Render = {
     x.imageSmoothingQuality = "high"; const hs = (a, b) => ((a * 73856093) ^ (b * 19349663)) >>> 0;
     for (let ty = 0; ty < w.rows; ty++) for (let tx = 0; tx < w.cols; tx++) {
       if (w.g[ty][tx] !== 1) continue; const h = hs(tx, ty), top = !w.solid(tx, ty - 1);
-      const b = TILES[top ? 4 : (h % 9 === 0 ? 3 : h % 3)]; x.drawImage(I, b[0] + 3, b[1] + 2, 90, 90, tx * T, ty * T, T, T);
+      const k = top ? 4 : (h % 9 === 0 ? 3 : h % 3), cw = TILESHEET.cw, ch = TILESHEET.ch; x.drawImage(I, k * cw + 4, 4, cw - 8, ch - 8, tx * T, ty * T, T, T);
       x.fillStyle = `rgba(0,0,0,${(h % 7) * 0.025})`; x.fillRect(tx * T, ty * T, T, T);   // each stone a little different
       if (!top && w.solid(tx, ty - 1)) { const gr = x.createLinearGradient(0, ty * T, 0, ty * T + T * 0.7); gr.addColorStop(0, "rgba(0,0,0,.4)"); gr.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = gr; x.fillRect(tx * T, ty * T, T, T * 0.7); }
     }
-    for (const [px, py, pw] of CFG.level.platforms) { x.drawImage(I, 9, 302, 196, 47, px * T, py * T, pw * T, T);
+    for (const [px, py, pw] of CFG.level.platforms) { for (let i = 0; i < pw; i++) x.drawImage(I, 10 * TILESHEET.cw + 4, 4, TILESHEET.cw - 8, TILESHEET.ch - 8, (px + i) * T, py * T, T, T);
       const gr = x.createLinearGradient(0, (py + 1) * T, 0, (py + 1) * T + T * 0.9); gr.addColorStop(0, "rgba(0,0,0,.5)"); gr.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = gr; x.fillRect(px * T, (py + 1) * T, pw * T, T * 0.9); }
     return c;
   },
@@ -52,7 +50,7 @@ const Render = {
     if (p.ground && !p.dead) this.shade(p.x + p.w / 2 - cm, p.y + p.h, 8);
     for (const e of es) this.enemy(e, cm);
     this.ghosts(cm); this.player(p, cm);
-    for (const q of Fx.parts) { cx.globalAlpha = Math.min(1, q.life * 3); cx.fillStyle = q.col; cx.fillRect(Math.round(q.x - cm), Math.round(q.y), 2, 2); } cx.globalAlpha = 1;
+    for (const q of Fx.parts) { cx.globalAlpha = Math.min(1, q.life * 3); cx.fillStyle = q.col; cx.fillRect(Math.round(q.x - cm), Math.round(q.y), q.s || 2, q.s || 2); } cx.globalAlpha = 1;
     const f = cx.createLinearGradient(0, 150, 0, H); f.addColorStop(0, "rgba(91,85,96,0)"); f.addColorStop(1, "rgba(91,85,96,.3)"); cx.fillStyle = f; cx.fillRect(0, 150, W, H - 150);
     for (let i = 0; i < 3; i++) { const fx = ((t * (6 + i * 4) + i * 190 - cam * (0.25 + i * 0.1)) % (W + 360) + W + 360) % (W + 360) - 180, fy = H - 50 - i * 26;
       const g = cx.createRadialGradient(fx, fy, 4, fx, fy, 130); g.addColorStop(0, "rgba(154,146,142,.09)"); g.addColorStop(1, "rgba(154,146,142,0)"); cx.fillStyle = g; cx.fillRect(fx - 130, fy - 60, 260, 120); }   // drifting mist
@@ -63,6 +61,7 @@ const Render = {
     for (const [lx, ly, r, a] of lights) { const g = cx.createRadialGradient(lx, ly, 3, lx, ly, r); g.addColorStop(0, `rgba(200,85,61,${a})`); g.addColorStop(1, "rgba(0,0,0,0)"); cx.fillStyle = g; cx.fillRect(lx - r, ly - r, r * 2, r * 2); }
     cx.globalCompositeOperation = "source-over";
     const v = cx.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, W * 0.65); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.5)"); cx.fillStyle = v; cx.fillRect(0, 0, W, H);
+    if (p.hurt > 0 && !p.dead) { cx.fillStyle = `rgba(107,29,36,${Math.min(0.45, p.hurt * 1.8)})`; cx.fillRect(0, 0, W, H); }   // brief dried-blood flash when hurt
     this.hud(p); if (CFG.debug) this.debug(p, es, cm);
     cx.restore();
   },
@@ -73,30 +72,36 @@ const Render = {
       if (LIT[name]) lights.push([x + w / 2, y + h * 0.35, 55 + Math.sin(t * 9 + col) * 4, 0.16]); }
   },
   shade(x, y, r) { const cx = this.cx; cx.fillStyle = "rgba(0,0,0,.4)"; cx.beginPath(); cx.ellipse(Math.round(x), y, r, 2.5, 0, 0, 6.283); cx.fill(); },
-  ghosts(cm) {   // Echo Step: dark shadow copies with a pale violet rim so they show on any background
-    const cx = this.cx, A = this.img.player, cw = A.width / PCELLS;
-    for (const r of Fx.rings) { const k = 1 - r.life / 0.3; cx.globalAlpha = (1 - k) * 0.7; cx.strokeStyle = "#d9cfbd"; cx.lineWidth = 1.5;
-      cx.beginPath(); cx.ellipse(Math.round(r.x - cm), r.y, 6 + k * 22, 12 + k * 10, 0, 0, 6.283); cx.stroke(); }
-    for (const g of Fx.ghosts) { const a = Math.min(0.85, g.life * 3);
-      cx.save(); cx.translate(Math.round(g.x + 6 - cm), Math.round(g.y + 26)); cx.scale(g.face * 1.12, 0.92); cx.rotate(0.22);
-      cx.globalAlpha = a * 0.55; cx.drawImage(this.rim, 3 * cw, 0, cw, A.height, -cw * PS * 1.06 / 2, -FEET * PS * 1.04, cw * PS * 1.06, A.height * PS * 1.04);
-      cx.globalAlpha = a; cx.drawImage(this.shadow, 3 * cw, 0, cw, A.height, -cw * PS / 2, -FEET * PS, cw * PS, A.height * PS); cx.restore(); }
+  ghosts(cm) {   // rings (dodge start, hit flash) and the dodge shadow copies: dark with a bone rim so they show on any background
+    const cx = this.cx, H = ANIMS.player, s = H.scale, f = H.dash.frames[1];
+    for (const r of Fx.rings) { const k = 1 - r.life / r.d; cx.globalAlpha = (1 - k) * 0.8; cx.strokeStyle = r.c; cx.lineWidth = 1.5;
+      cx.beginPath(); cx.ellipse(Math.round(r.x - cm), r.y, r.r + k * r.g, r.r * 2 + k * r.g * 0.5, 0, 0, 6.283); cx.stroke(); }
+    for (const g of Fx.ghosts) { const a = Math.min(0.85, g.life * 3), w = f[2] * s, h = f[3] * s;
+      cx.save(); cx.translate(Math.round(g.x + 6 - cm), Math.round(g.y + 26)); cx.scale(g.face, 1);
+      cx.globalAlpha = a * 0.55; cx.drawImage(this.rim, f[0], f[1], f[2], f[3], -f[4] * s - 1, -h * 1.04 + 1, w * 1.06, h * 1.04);
+      cx.globalAlpha = a; cx.drawImage(this.shadow, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h); cx.restore(); }
     cx.globalAlpha = 1;
   },
-  player(p, cm) {
-    const cx = this.cx, A = this.img.player, cw = A.width / PCELLS, a = CFG.player.atk; if (p.inv > 0 && p.dodge < 0 && !p.dead && Math.floor(p.t * 18) % 2) return;
-    let f = 0;
-    if (p.dead) f = 10; else if (p.hurt > 0) f = 9; else if (p.dodge >= 0) f = 3; else if (p.atk >= 0) f = p.atk < a.from ? 6 : p.atk < a.to + 0.04 ? 7 : 8;
-    else if (!p.ground) f = p.vy < 0 ? 4 : 5; else if (Math.abs(p.vx) > 10) f = 1 + Math.floor(p.t * 10) % 3;
+  player(p, cm) {   // pick the animation and frame from what the Warden is doing
+    const cx = this.cx, A = this.img.player, H = ANIMS.player, s = H.scale, a = CFG.player.atk; if (p.inv > 0 && p.dodge < 0 && !p.dead && Math.floor(p.t * 18) % 2) return;
+    let an = "idle", i = 0;
+    if (p.dead) { an = "death"; i = Math.min(4, Math.floor(p.deadT * 8)); }
+    else if (p.hurt > 0) { an = "hurt"; i = p.hurt > 0.12 ? 0 : 1; }
+    else if (p.dodge >= 0) { an = "dash"; i = Math.min(2, Math.floor(p.dodge / CFG.player.dodge.dur * 3)); }
+    else if (p.atk >= 0) { an = "sword"; const t = p.atk, e = a.to + 0.04;
+      i = t < a.from ? Math.floor(t / a.from * 3) : t < e ? 3 + Math.floor((t - a.from) / (e - a.from) * 2) : 5 + Math.min(4, Math.floor((t - e) / (a.dur - e) * 5)); }
+    else if (!p.ground) { an = "jump"; i = p.vy < -250 ? 1 : p.vy < -80 ? 2 : p.vy < 80 ? 3 : 4; }
+    else if (p.landT > 0) { an = "jump"; i = 5; }
+    else if (Math.abs(p.vx) > 10) { an = "run"; i = Math.floor(p.t * H.run.fps) % 6; }
+    else i = Math.floor(p.t * H.idle.fps) % 7;
+    const f = H[an].frames[i], h = f[3] * s;
     cx.save(); cx.translate(Math.round(p.x + p.w / 2 - cm), Math.round(p.y + p.h)); cx.scale(p.face, 1);
-    let sx = 1, sy = 1, ox = 0, oy = 0;   // small squash, stretch and bob make the poses feel alive
-    if (f === 0) sy = 1 + Math.sin(p.t * 2.5) * 0.012;
-    if (f >= 1 && f <= 3 && p.dodge < 0) oy = -Math.abs(Math.sin(p.t * 10)) * 1.2;
-    if (p.landT > 0) { const k = p.landT / 0.12; sy = 1 - 0.14 * k; sx = 1 + 0.12 * k; }
-    if (p.dodge >= 0) { sx = 1.15; sy = 0.9; }
-    if (f === 7) ox = 3;
-    cx.translate(ox, oy); cx.rotate(p.dodge >= 0 ? 0.22 : 0); cx.scale(sx, sy);
-    cx.drawImage(A, f * cw, 0, cw, A.height, -cw * PS / 2, -FEET * PS, cw * PS, A.height * PS); cx.restore();
+    cx.drawImage(A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, f[2] * s, h);
+    if (an === "sword" && p.atk >= a.from && p.atk < a.to + 0.1) {   // slash VFX: bone-coloured crescent that follows the real hit window
+      const k = (p.atk - a.from) / (a.to + 0.1 - a.from), sw = Math.min(1, k * 1.5 + 0.3);
+      cx.globalAlpha = 1 - k * k; cx.strokeStyle = "#d9cfbd"; cx.lineWidth = 3 - 2 * k; cx.beginPath(); cx.arc(0, -13, a.reach - 4 + k * 5, -1.15, -1.15 + 2 * sw); cx.stroke();
+      cx.lineWidth = 1; cx.beginPath(); cx.arc(0, -13, a.reach + 1 + k * 5, -1.0, -1.0 + 1.6 * sw); cx.stroke(); }
+    cx.restore();
   },
   enemy(e, cm) {   // pick the animation and frame that match the enemy's state
     const cx = this.cx, A = this.img.husk, H = ANIMS.husk, d = e.d, s = H.scale; let an = "walk", i = 0;

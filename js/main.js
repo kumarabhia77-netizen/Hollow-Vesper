@@ -8,7 +8,7 @@
   function reset() {
     player = new Player(L.spawn[0] * T, L.spawn[1] * T - CFG.player.h);
     enemies = L.enemies.map(([c, type]) => new Enemy(type, c * T, L.ground * T - CFG.enemies[type].h));
-    Fx.parts = []; Fx.ghosts = []; Fx.shake = 0; Fx.hitstop = 0; cam = 0;
+    Fx.parts = []; Fx.ghosts = []; Fx.rings = []; Fx.shake = 0; Fx.hitstop = 0; cam = 0;
   }
   function setState(s) {
     state = s;
@@ -21,9 +21,14 @@
     for (const e of enemies) e.update(dt, world, player);
     enemies = enemies.filter(e => !e.gone);
     Fx.shake = Math.max(0, Fx.shake - dt);
-    for (const q of Fx.parts) { q.life -= dt; q.x += q.vx * dt; q.vy += 400 * dt; q.y += q.vy * dt; }
+    for (const q of Fx.parts) { q.life -= dt; q.x += q.vx * dt; q.vy += (q.g === undefined ? 400 : q.g) * dt; q.y += q.vy * dt; }
     Fx.parts = Fx.parts.filter(q => q.life > 0);
+    if (Math.random() < 0.3) for (const [n, c] of L.props) {   // drifting embers above torches, lanterns and the shrine
+      if (!LIT[n] || Math.random() < 0.7) continue; const b = PROPS[n], x = c * T + b[2] * 0.14;
+      if (x - cam < -20 || x - cam > CFG.W + 20 || Fx.parts.length > 160) continue;
+      Fx.parts.push({ x: x + (Math.random() - 0.5) * 4, y: (b[4] ? 0 : L.ground * T - b[3] * 0.28) + b[3] * 0.28 * (n === "lantern" ? 0.55 : 0.12), vx: (Math.random() - 0.5) * 10, vy: -14 - Math.random() * 14, g: -6, s: 1, life: 0.8 + Math.random() * 0.8, col: "#c8553d" }); }
     for (const g of Fx.ghosts) g.life -= dt; Fx.ghosts = Fx.ghosts.filter(g => g.life > 0);
+    for (const r of Fx.rings) r.life -= dt; Fx.rings = Fx.rings.filter(r => r.life > 0);
     const target = Math.max(0, Math.min(world.w - CFG.W, player.x + player.w / 2 - CFG.W / 2 + player.face * 20));
     cam += (target - cam) * Math.min(1, dt * 6);
     if (player.dead && player.deadT > 1 && state === "play") setState("dead");
