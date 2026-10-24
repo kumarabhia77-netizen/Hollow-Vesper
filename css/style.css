@@ -17,3 +17,22 @@ small{font-size:1.6cqw;color:#8d8374}
 .pad{display:flex;gap:2cqw}
 .pad button{pointer-events:auto;touch-action:none;width:12cqw;height:12cqw;border-radius:50%;background:rgba(20,16,24,.55);border:1px solid rgba(217,207,189,.35);color:#d9cfbd;font:inherit;font-size:2.4cqw}
 #err{position:absolute;left:0;right:0;bottom:0;background:#5a1010;color:#fff;font:1.8cqw monospace;padding:1cqw;user-select:text;-webkit-user-select:text}
+
+/* animated main menu */
+#menu{background:radial-gradient(ellipse at center,rgba(8,6,10,.3),rgba(5,4,8,.92));overflow:hidden}
+#menu h1,#menu p,#menu button,#menu small,#menu .rule{position:relative;z-index:1}
+#menu h1{animation:rise 2.4s ease-out both,pulse 4.5s 2.4s ease-in-out infinite}
+#menu .rule{height:1px;width:0;background:linear-gradient(90deg,transparent,#c8553d,transparent);animation:grow 2s 1s forwards}
+#menu p{opacity:0;animation:fade 1.5s 1.4s forwards}
+#menu small{opacity:0;animation:fade 1.5s 2.8s forwards}
+#menu button{opacity:0;animation:fade 1.2s 2.2s forwards,glow 2.8s 3.4s ease-in-out infinite}
+.ember{position:absolute;bottom:-2cqw;width:.5cqw;height:.5cqw;border-radius:50%;background:#e07a4a;box-shadow:0 0 1cqw #c8553d;opacity:0;pointer-events:none;animation:float linear infinite}
+.screen:not(#menu):not(.hidden){animation:fade .4s both}
+#dead h2{color:#a33a3a;text-shadow:0 0 3cqw #6b1d24;animation:rise 1.6s ease-out both}
+@keyframes rise{from{opacity:0;letter-spacing:.9em;filter:blur(6px)}to{opacity:1;letter-spacing:.3em;filter:blur(0)}}
+@keyframes pulse{50%{text-shadow:0 0 5cqw #c8553d,0 0 1cqw #8a2c2c}}
+@keyframes grow{to{width:40cqw}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes glow{50%{box-shadow:0 0 2cqw #8a2c2c;border-color:#c8553d}}
+@keyframes float{0%{transform:translate(0,0);opacity:0}10%{opacity:.9}100%{transform:translate(var(--dx),-110cqh);opacity:0}}
+@media (prefers-reduced-motion:reduce){.ember{display:none}#menu h1,#menu button{animation:fade 1s both}}
