@@ -10,6 +10,10 @@ class World {
   solid(tx, ty) { if (tx < 0 || tx >= this.cols) return true; if (ty < 0) return false; if (ty >= this.rows) return true; return this.g[ty][tx] > 0; }
   hit(b) { const T = this.T, x1 = Math.floor(b.x / T), x2 = Math.floor((b.x + b.w - 0.01) / T), y1 = Math.floor(b.y / T), y2 = Math.floor((b.y + b.h - 0.01) / T);
     for (let ty = y1; ty <= y2; ty++) for (let tx = x1; tx <= x2; tx++) if (this.solid(tx, ty)) return [tx, ty]; return null; }
+  clear(a, b) {   // line of sight: no solid tile between two bodies at body height
+    const T = this.T, x1 = a.x + a.w / 2, x2 = b.x + b.w / 2, y = Math.floor((a.y + a.h / 2) / T), n = Math.ceil(Math.abs(x2 - x1) / (T / 2));
+    for (let i = 1; i < n; i++) if (this.solid(Math.floor((x1 + (x2 - x1) * i / n) / T), y)) return false; return true;
+  }
   // Move horizontally first, then vertically, fixing overlaps each time.
   move(b, dt) {
     const T = this.T; let h; b.wall = false;
