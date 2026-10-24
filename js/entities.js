@@ -1,6 +1,6 @@
 "use strict";
 // Player and enemy behaviour. Numbers come from CFG so they are easy to tune.
-const Fx = { shake: 0, hitstop: 0, parts: [], ghosts: [], shakeOn: true };
+const Fx = { shake: 0, hitstop: 0, parts: [], ghosts: [], rings: [], shakeOn: true };
 const ov = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 function spark(x, y, col, n) { for (let i = 0; i < n; i++) Fx.parts.push({ x, y, vx: (Math.random() - .5) * 120, vy: -Math.random() * 90, life: .35 + Math.random() * .2, col }); }
 
@@ -19,7 +19,7 @@ class Player {
     this.coy = this.ground ? c.coyote : this.coy - dt; this.dcd -= dt;
     if (this.dead) { this.deadT += dt; this.vx *= 0.9; }
     else if (this.hurt > 0) this.hurt -= dt;
-    else if (Input.dodgeP && this.dodge < 0 && this.dcd <= 0 && this.hurt <= 0) { this.dodge = 0; this.dcd = c.dodge.cd; this.inv = Math.max(this.inv, c.dodge.inv); this.atk = -1; Sfx.play("dodge"); }
+    else if (Input.dodgeP && this.dodge < 0 && this.dcd <= 0 && this.hurt <= 0) { this.dodge = 0; this.dcd = c.dodge.cd; this.inv = Math.max(this.inv, c.dodge.inv); this.atk = -1; Sfx.play("dodge"); Fx.rings.push({ x: this.x + 6, y: this.y + 13, life: 0.3 }); }
     if (this.dodge >= 0 && !this.dead) {   // Echo Step: quick forward dash, brief invincibility, faint afterimages
       this.dodge += dt; this.vx = this.face * c.dodge.speed; this.gh -= dt;
       if (this.gh <= 0) { this.gh = 0.03; Fx.ghosts.push({ x: this.x, y: this.y, face: this.face, life: 0.3 }); if (this.ground) spark(this.x + 6, this.y + 25, "#5b5560", 1); }
@@ -42,7 +42,7 @@ class Player {
       if (this.atk >= a.dur) this.atk = -1;
     }
     this.vy = Math.min(this.vy + CFG.GRAV * dt, 700); const was = this.ground, fv = this.vy; world.move(this, dt); this.landT = Math.max(0, this.landT - dt);
-    if (!was && this.ground && fv > 150 && !this.dead) { this.landT = 0.12; Sfx.play("step"); }
+    if (!was && this.ground && fv > 150 && !this.dead) { this.landT = 0.12; Sfx.play("step"); spark(this.x + 6, this.y + 26, "#5b5560", 4); }
     if (this.ground && Math.abs(this.vx) > 10 && this.atk < 0 && !this.dead) { this.stepT -= dt; if (this.stepT <= 0) { Sfx.play("step"); this.stepT = 0.28; } }
   }
 }
@@ -52,7 +52,7 @@ class Enemy {
     Object.assign(this, { type, w: d.w, h: d.h, x, y, vx: 0, vy: 0, face: -1, hp: d.hp, st: "patrol", t: 0, ground: false, did: false, flash: 0, gone: false }); }
   alive() { return this.st !== "dead"; }
   go(s) { this.st = s; this.t = 0; this.did = false; if (s === "windup") Sfx.play("warn"); }
-  hitbox() { return { x: this.face > 0 ? this.x + this.w : this.x - this.d.atk.reach, y: this.y + 2, w: this.d.atk.reach, h: this.h - 4 }; }
+  hitbox() { return { x: this.face > 0 ? this.x + this.w : this.x - this.d.atk.reach, y: this.y + this.h * 0.45, w: this.d.atk.reach, h: this.h * 0.55 }; }
   blocked(world) { const T = world.T, tx = Math.floor((this.x + (this.face > 0 ? this.w + 2 : -2)) / T), ty = Math.floor((this.y + this.h + 2) / T);
     return this.wall || !world.solid(tx, ty); }
   damage(n, dir, knock) {
@@ -64,9 +64,10 @@ class Enemy {
   update(dt, world, p) {
     const d = this.d, a = d.atk; this.t += dt; this.flash = Math.max(0, this.flash - dt);
     const dx = (p.x + p.w / 2) - (this.x + this.w / 2), dy = p.y - this.y;
-    const see = !p.dead && Math.abs(dx) < d.sight && Math.abs(dy) < 36;
+    const see = !p.dead && Math.abs(dx) < d.sight && Math.abs(dy) < 36 && world.clear(this, p);
     switch (this.st) {
-      case "patrol": this.vx = this.face * d.speed; if (this.blocked(world)) this.face *= -1; if (see) this.go("chase"); break;
+      case "patrol": this.vx = this.face * d.speed; if (this.blocked(world)) this.face *= -1; if (see) this.go("notice"); break;
+      case "notice": this.vx = 0; this.face = dx > 0 ? 1 : -1; if (this.t >= d.notice) this.go("chase"); break;   // bell snaps up: a readable warning before the chase
       case "chase": this.face = dx > 0 ? 1 : -1; this.vx = this.blocked(world) ? 0 : this.face * d.chase;
         if (!see && Math.abs(dx) > d.sight * 1.4) this.go("patrol");
         else if (see && Math.abs(dx) < a.range && Math.abs(dy) < 24) this.go("windup"); break;
@@ -76,7 +77,7 @@ class Enemy {
         if (this.t >= a.active) this.go("recover"); break;
       case "recover": this.vx = 0; if (this.t >= a.recover) this.go("chase"); break;
       case "hurt": this.vx *= 0.92; if (this.t >= 0.3) this.go("chase"); break;
-      case "dead": this.vx *= 0.92; if (this.t > 1.2) this.gone = true; break;
+      case "dead": this.vx *= 0.92; if (this.t > 1.6) this.gone = true; break;
     }
     this.vy = Math.min(this.vy + CFG.GRAV * dt, 700); world.move(this, dt);
   }

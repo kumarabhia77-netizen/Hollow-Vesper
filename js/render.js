@@ -1,8 +1,6 @@
 "use strict";
 // Everything that draws. Pictures come from the assets/ folder; swap a PNG to change the look.
 const PS = 0.274, FEET = 137, PCELLS = 11;   // player: scale, feet row in the sheet, frames per sheet
-const HS = 0.24;                              // husk scale
-const HUSK = [[5,48,74,155],[72,51,133,153],[142,40,207,155],[226,35,290,155],[305,3,383,155],[392,56,513,154],[515,51,591,155],[594,64,678,153],[681,86,763,153]];
 const TILES = [[9,12],[117,11],[225,11],[333,10],[443,10]];   // stone x3, cracked, moss top
 const PROPS = { lantern: [27,16,42,126,1], torch: [108,23,30,103,0], statue: [161,51,69,88,0], rubble: [245,69,112,74,0], barrel: [372,51,61,82,0],
   cage: [534,0,53,140,1], bell: [608,7,89,136,0], banner: [757,0,68,143,1], skull: [838,69,104,74,0], shrine: [953,5,111,138,0] };
@@ -14,7 +12,7 @@ const Render = {
     this.cv = document.getElementById("game"); this.cx = this.cv.getContext("2d"); this.cx.imageSmoothingQuality = "high";
     this.img = {}; let n = 0; const names = ["player", "husk", "tiles", "props", "bg_far", "bg_mid", "bg_near"];
     names.forEach(k => { const i = new Image();
-      i.onload = () => { if (++n === names.length) { this.tiles = this.buildTiles(world); this.shadow = this.tint(this.img.player, "#4a3470"); this.ready = true; } };
+      i.onload = () => { if (++n === names.length) { this.tiles = this.buildTiles(world); this.shadow = this.tint(this.img.player, "#0c0b11"); this.rim = this.tint(this.img.player, "#d9cfbd"); this.ready = true; } };
       i.onerror = () => this.err("Missing picture: assets/" + k + ".png (check the name and folder)");
       i.src = "assets/" + k + ".png"; this.img[k] = i; });
     const g = this.cx.createLinearGradient(0, 0, 0, CFG.H); g.addColorStop(0, "#0c0b11"); g.addColorStop(1, "#3b2328"); this.sky = g;
@@ -55,14 +53,14 @@ const Render = {
     for (const e of es) this.enemy(e, cm);
     this.ghosts(cm); this.player(p, cm);
     for (const q of Fx.parts) { cx.globalAlpha = Math.min(1, q.life * 3); cx.fillStyle = q.col; cx.fillRect(Math.round(q.x - cm), Math.round(q.y), 2, 2); } cx.globalAlpha = 1;
-    const f = cx.createLinearGradient(0, 150, 0, H); f.addColorStop(0, "rgba(70,60,85,0)"); f.addColorStop(1, "rgba(70,60,85,.3)"); cx.fillStyle = f; cx.fillRect(0, 150, W, H - 150);
+    const f = cx.createLinearGradient(0, 150, 0, H); f.addColorStop(0, "rgba(91,85,96,0)"); f.addColorStop(1, "rgba(91,85,96,.3)"); cx.fillStyle = f; cx.fillRect(0, 150, W, H - 150);
     for (let i = 0; i < 3; i++) { const fx = ((t * (6 + i * 4) + i * 190 - cam * (0.25 + i * 0.1)) % (W + 360) + W + 360) % (W + 360) - 180, fy = H - 50 - i * 26;
-      const g = cx.createRadialGradient(fx, fy, 4, fx, fy, 130); g.addColorStop(0, "rgba(120,105,140,.10)"); g.addColorStop(1, "rgba(120,105,140,0)"); cx.fillStyle = g; cx.fillRect(fx - 130, fy - 60, 260, 120); }   // drifting mist
-    cx.fillStyle = "rgba(205,160,120,.35)";
+      const g = cx.createRadialGradient(fx, fy, 4, fx, fy, 130); g.addColorStop(0, "rgba(154,146,142,.09)"); g.addColorStop(1, "rgba(154,146,142,0)"); cx.fillStyle = g; cx.fillRect(fx - 130, fy - 60, 260, 120); }   // drifting mist
+    cx.fillStyle = "rgba(217,207,189,.3)";
     for (const m of this.motes) cx.fillRect(Math.floor(((m.x + t * m.s - cam * 0.5) % W + W) % W), Math.floor((m.y + Math.sin(t + m.s) * 6 + H) % H), 1, 1);
     cx.globalCompositeOperation = "lighter";
     lights.push([p.x + 6 - cm, p.y + 10, 95, 0.2]);
-    for (const [lx, ly, r, a] of lights) { const g = cx.createRadialGradient(lx, ly, 3, lx, ly, r); g.addColorStop(0, `rgba(200,110,55,${a})`); g.addColorStop(1, "rgba(0,0,0,0)"); cx.fillStyle = g; cx.fillRect(lx - r, ly - r, r * 2, r * 2); }
+    for (const [lx, ly, r, a] of lights) { const g = cx.createRadialGradient(lx, ly, 3, lx, ly, r); g.addColorStop(0, `rgba(200,85,61,${a})`); g.addColorStop(1, "rgba(0,0,0,0)"); cx.fillStyle = g; cx.fillRect(lx - r, ly - r, r * 2, r * 2); }
     cx.globalCompositeOperation = "source-over";
     const v = cx.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, W * 0.65); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.5)"); cx.fillStyle = v; cx.fillRect(0, 0, W, H);
     this.hud(p); if (CFG.debug) this.debug(p, es, cm);
@@ -75,10 +73,14 @@ const Render = {
       if (LIT[name]) lights.push([x + w / 2, y + h * 0.35, 55 + Math.sin(t * 9 + col) * 4, 0.16]); }
   },
   shade(x, y, r) { const cx = this.cx; cx.fillStyle = "rgba(0,0,0,.4)"; cx.beginPath(); cx.ellipse(Math.round(x), y, r, 2.5, 0, 0, 6.283); cx.fill(); },
-  ghosts(cm) {
+  ghosts(cm) {   // Echo Step: dark shadow copies with a pale violet rim so they show on any background
     const cx = this.cx, A = this.img.player, cw = A.width / PCELLS;
-    for (const g of Fx.ghosts) { cx.globalAlpha = Math.min(0.7, g.life * 2.2); cx.save(); cx.translate(Math.round(g.x + 6 - cm), Math.round(g.y + 26)); cx.scale(g.face * 1.12, 0.92);
-      cx.drawImage(this.shadow, 3 * cw, 0, cw, A.height, -cw * PS / 2, -FEET * PS, cw * PS, A.height * PS); cx.restore(); }
+    for (const r of Fx.rings) { const k = 1 - r.life / 0.3; cx.globalAlpha = (1 - k) * 0.7; cx.strokeStyle = "#d9cfbd"; cx.lineWidth = 1.5;
+      cx.beginPath(); cx.ellipse(Math.round(r.x - cm), r.y, 6 + k * 22, 12 + k * 10, 0, 0, 6.283); cx.stroke(); }
+    for (const g of Fx.ghosts) { const a = Math.min(0.85, g.life * 3);
+      cx.save(); cx.translate(Math.round(g.x + 6 - cm), Math.round(g.y + 26)); cx.scale(g.face * 1.12, 0.92); cx.rotate(0.22);
+      cx.globalAlpha = a * 0.55; cx.drawImage(this.rim, 3 * cw, 0, cw, A.height, -cw * PS * 1.06 / 2, -FEET * PS * 1.04, cw * PS * 1.06, A.height * PS * 1.04);
+      cx.globalAlpha = a; cx.drawImage(this.shadow, 3 * cw, 0, cw, A.height, -cw * PS / 2, -FEET * PS, cw * PS, A.height * PS); cx.restore(); }
     cx.globalAlpha = 1;
   },
   player(p, cm) {
@@ -93,25 +95,30 @@ const Render = {
     if (p.landT > 0) { const k = p.landT / 0.12; sy = 1 - 0.14 * k; sx = 1 + 0.12 * k; }
     if (p.dodge >= 0) { sx = 1.15; sy = 0.9; }
     if (f === 7) ox = 3;
-    cx.translate(ox, oy); cx.scale(sx, sy);
+    cx.translate(ox, oy); cx.rotate(p.dodge >= 0 ? 0.22 : 0); cx.scale(sx, sy);
     cx.drawImage(A, f * cw, 0, cw, A.height, -cw * PS / 2, -FEET * PS, cw * PS, A.height * PS); cx.restore();
   },
-  enemy(e, cm) {
-    const cx = this.cx, A = this.img.husk; let f;
-    switch (e.st) { case "patrol": case "chase": f = Math.floor(e.t * 6) % 3; break; case "windup": f = e.t < .15 ? 3 : 4; break;
-      case "attack": f = 5; break; case "recover": f = 6; break; case "hurt": f = 7; break; default: f = 8; }
-    const b = HUSK[f], bw = b[2] - b[0], bh = b[3] - b[1];
-    cx.save(); cx.globalAlpha = e.st === "dead" ? Math.max(0, 1 - e.t / 1.2) : 1;
+  enemy(e, cm) {   // pick the animation and frame that match the enemy's state
+    const cx = this.cx, A = this.img.husk, H = ANIMS.husk, d = e.d, s = H.scale; let an = "walk", i = 0;
+    const pick = (n, t, dur) => Math.min(n - 1, Math.floor(t / dur * n));
+    switch (e.st) {
+      case "patrol": an = "walk"; break;
+      case "chase": an = Math.abs(e.vx) < 1 ? "idle" : "walk"; break;
+      case "notice": an = "notice"; i = pick(3, e.t, d.notice); break;
+      case "windup": an = "windup"; i = pick(4, e.t, d.atk.windup); break;
+      case "attack": an = "attack"; i = e.t < 0.04 ? 0 : 1; break;
+      case "recover": an = "recover"; i = pick(3, e.t, d.atk.recover); break;
+      case "hurt": an = "hurt"; i = pick(2, e.t, 0.3); break;
+      default: an = "death"; i = Math.min(6, Math.floor(e.t * 8));
+    }
+    const a = H[an]; if (an === "walk" || an === "idle") i = Math.floor(e.t * a.fps) % a.frames.length;
+    const f = a.frames[i], w = f[2] * s, h = f[3] * s;
+    cx.save(); cx.globalAlpha = e.st === "dead" ? Math.max(0, Math.min(1, 1 - (e.t - 1) / 0.6)) : 1;
     cx.translate(Math.round(e.x + e.w / 2 - cm), Math.round(e.y + e.h)); cx.scale(e.face, 1);
-    let rot = 0, bob = 0;   // lean back on wind-up, lean into the swing, wobble when hit
-    if (e.st === "patrol" || e.st === "chase") bob = -Math.abs(Math.sin(e.t * 9)) * 1.2;
-    else if (e.st === "windup") rot = -0.12 * Math.min(1, e.t / e.d.atk.windup); else if (e.st === "attack") rot = 0.14;
-    else if (e.st === "recover") rot = 0.05; else if (e.st === "hurt") rot = -0.1 + Math.sin(e.t * 60) * 0.03;
-    cx.translate(0, bob); cx.rotate(rot);
-    cx.drawImage(A, b[0], b[1], bw, bh, -bw * HS / 2, -bh * HS + 1, bw * HS, bh * HS);
-    if (e.flash > 0) { cx.globalCompositeOperation = "lighter"; cx.globalAlpha = 0.6; cx.drawImage(A, b[0], b[1], bw, bh, -bw * HS / 2, -bh * HS + 1, bw * HS, bh * HS); }
+    cx.drawImage(A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h);
+    if (e.flash > 0) { cx.globalCompositeOperation = "lighter"; cx.globalAlpha = 0.6; cx.drawImage(A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h); }
     cx.restore();
-    if (e.st === "windup") { cx.fillStyle = "#e07a4a"; const x = Math.round(e.x + e.w / 2 - cm); cx.fillRect(x - 1, e.y - 14, 2, 7); cx.fillRect(x - 1, e.y - 5, 2, 2); }   // warning mark
+    if (e.st === "windup") { cx.fillStyle = "#c8553d"; const x = Math.round(e.x + e.w / 2 - cm); cx.fillRect(x - 1, e.y - 40, 2, 7); cx.fillRect(x - 1, e.y - 31, 2, 2); }   // warning mark
   },
   hud(p) {
     const cx = this.cx;
