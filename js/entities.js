@@ -4,6 +4,16 @@ const Fx = { shake: 0, hitstop: 0, parts: [], ghosts: [], rings: [], shakeOn: tr
 const ov = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 function spark(x, y, col, n) { for (let i = 0; i < n; i++) Fx.parts.push({ x, y, vx: (Math.random() - .5) * 120, vy: -Math.random() * 90, life: .35 + Math.random() * .2, col }); }
 
+function hitFx(x, y, dir) {   // contact flash: ring plus ember and bone streaks flying away from the blow
+  Fx.rings.push({ x, y, life: 0.18, d: 0.18, c: "#d9cfbd", r: 3, g: 12 });
+  for (let i = 0; i < 12; i++) { if (Fx.parts.length > 160) break; const a = (Math.random() - 0.5) * 1.6;
+    Fx.parts.push({ x, y, vx: Math.cos(a) * dir * (60 + Math.random() * 110), vy: Math.sin(a) * 90 - 20, g: 200, s: 2, life: 0.2 + Math.random() * 0.2, col: i % 3 ? "#c8553d" : "#d9cfbd" }); }
+}
+function dust(x, y, n) { for (let i = 0; i < n; i++) { if (Fx.parts.length > 160) break;
+  Fx.parts.push({ x: x + (Math.random() - 0.5) * 8, y, vx: (Math.random() - 0.5) * 50, vy: -8 - Math.random() * 18, g: 25, s: 3, life: 0.3 + Math.random() * 0.2, col: "#5b5560" }); } }
+function ember(x, y, n) { for (let i = 0; i < n; i++) { if (Fx.parts.length > 160) break;
+  Fx.parts.push({ x: x + (Math.random() - 0.5) * 10, y, vx: (Math.random() - 0.5) * 30, vy: -20 - Math.random() * 40, g: -10, s: 2, life: 0.5 + Math.random() * 0.4, col: "#c8553d" }); } }
+
 class Player {
   constructor(x, y) { Object.assign(this, { w: CFG.player.w, h: CFG.player.h, x, y, vx: 0, vy: 0, face: 1, hp: CFG.player.hp,
     ground: false, atk: -1, inv: 0, hurt: 0, dead: false, deadT: 0, coy: 0, buf: 0, hits: null, t: 0, landT: 0, dodge: -1, dcd: 0, stepT: 0, gh: 0 }); }
@@ -11,7 +21,7 @@ class Player {
   damage(d, dir, knock) {
     if (this.inv > 0 || this.dead) return;
     this.hp = Math.max(0, this.hp - d); this.inv = CFG.player.inv; this.hurt = 0.25; this.vx = dir * knock; this.vy = -140; this.atk = -1;
-    Fx.shake = 0.25; spark(this.x + 6, this.y + 12, "#b33a3a", 8); this.dodge = -1; Sfx.play("hurt");
+    Fx.shake = 0.25; spark(this.x + 6, this.y + 12, "#c8553d", 8); this.dodge = -1; Sfx.play("hurt");
     if (this.hp === 0) { this.dead = true; Sfx.play("die"); }
   }
   update(dt, world, enemies) {
@@ -19,10 +29,10 @@ class Player {
     this.coy = this.ground ? c.coyote : this.coy - dt; this.dcd -= dt;
     if (this.dead) { this.deadT += dt; this.vx *= 0.9; }
     else if (this.hurt > 0) this.hurt -= dt;
-    else if (Input.dodgeP && this.dodge < 0 && this.dcd <= 0 && this.hurt <= 0) { this.dodge = 0; this.dcd = c.dodge.cd; this.inv = Math.max(this.inv, c.dodge.inv); this.atk = -1; Sfx.play("dodge"); Fx.rings.push({ x: this.x + 6, y: this.y + 13, life: 0.3 }); }
+    else if (Input.dodgeP && this.dodge < 0 && this.dcd <= 0 && this.hurt <= 0) { this.dodge = 0; this.dcd = c.dodge.cd; this.inv = Math.max(this.inv, c.dodge.inv); this.atk = -1; Sfx.play("dodge"); Fx.rings.push({ x: this.x + 6, y: this.y + 13, life: 0.3, d: 0.3, c: "#d9cfbd", r: 6, g: 22 }); dust(this.x + 6, this.y + 25, 6); }
     if (this.dodge >= 0 && !this.dead) {   // Echo Step: quick forward dash, brief invincibility, faint afterimages
       this.dodge += dt; this.vx = this.face * c.dodge.speed; this.gh -= dt;
-      if (this.gh <= 0) { this.gh = 0.03; Fx.ghosts.push({ x: this.x, y: this.y, face: this.face, life: 0.3 }); if (this.ground) spark(this.x + 6, this.y + 25, "#5b5560", 1); }
+      if (this.gh <= 0) { this.gh = 0.03; Fx.ghosts.push({ x: this.x, y: this.y, face: this.face, life: 0.3 }); if (this.ground) dust(this.x + 6, this.y + 25, 1); }
       if (this.dodge >= c.dodge.dur) { this.dodge = -1; this.vx = 0; }
     } else if (!this.dead && this.hurt <= 0) {
       const dir = (Input.right ? 1 : 0) - (Input.left ? 1 : 0);
@@ -42,8 +52,8 @@ class Player {
       if (this.atk >= a.dur) this.atk = -1;
     }
     this.vy = Math.min(this.vy + CFG.GRAV * dt, 700); const was = this.ground, fv = this.vy; world.move(this, dt); this.landT = Math.max(0, this.landT - dt);
-    if (!was && this.ground && fv > 150 && !this.dead) { this.landT = 0.12; Sfx.play("step"); spark(this.x + 6, this.y + 26, "#5b5560", 4); }
-    if (this.ground && Math.abs(this.vx) > 10 && this.atk < 0 && !this.dead) { this.stepT -= dt; if (this.stepT <= 0) { Sfx.play("step"); this.stepT = 0.28; } }
+    if (!was && this.ground && fv > 150 && !this.dead) { this.landT = 0.12; Sfx.play("step"); dust(this.x + 6, this.y + 26, 7); }
+    if (this.ground && Math.abs(this.vx) > 10 && this.atk < 0 && !this.dead) { this.stepT -= dt; if (this.stepT <= 0) { Sfx.play("step"); this.stepT = 0.28; dust(this.x + 6 - this.face * 4, this.y + 26, 1); } }
   }
 }
 
@@ -57,8 +67,8 @@ class Enemy {
     return this.wall || !world.solid(tx, ty); }
   damage(n, dir, knock) {
     if (!this.alive()) return;
-    this.hp -= n; this.flash = 0.12; Fx.shake = 0.12; Fx.hitstop = 0.07; Sfx.play("hit"); spark(this.x + this.w / 2, this.y + 10, "#e8d8b0", 6);
-    if (this.hp <= 0) { this.go("dead"); Sfx.play("edie"); this.vx = dir * knock * 0.5; this.vy = -100; return; }
+    this.hp -= n; this.flash = 0.12; Fx.shake = 0.12; Fx.hitstop = 0.07; Sfx.play("hit"); hitFx(this.x + this.w / 2, this.y + this.h * 0.4, dir);
+    if (this.hp <= 0) { this.go("dead"); Sfx.play("edie"); ember(this.x + this.w / 2, this.y + 8, 14); this.vx = dir * knock * 0.5; this.vy = -100; return; }
     this.go("hurt"); this.vx = dir * knock; this.vy = -80;
   }
   update(dt, world, p) {
