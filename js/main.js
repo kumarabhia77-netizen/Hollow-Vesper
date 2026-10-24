@@ -8,7 +8,7 @@
   function reset() {
     player = new Player(L.spawn[0] * T, L.spawn[1] * T - CFG.player.h);
     enemies = L.enemies.map(([c, type]) => new Enemy(type, c * T, L.ground * T - CFG.enemies[type].h));
-    Fx.parts = []; Fx.shake = 0; Fx.hitstop = 0; cam = 0;
+    Fx.parts = []; Fx.ghosts = []; Fx.shake = 0; Fx.hitstop = 0; cam = 0;
   }
   function setState(s) {
     state = s;
@@ -23,6 +23,7 @@
     Fx.shake = Math.max(0, Fx.shake - dt);
     for (const q of Fx.parts) { q.life -= dt; q.x += q.vx * dt; q.vy += 400 * dt; q.y += q.vy * dt; }
     Fx.parts = Fx.parts.filter(q => q.life > 0);
+    for (const g of Fx.ghosts) g.life -= dt; Fx.ghosts = Fx.ghosts.filter(g => g.life > 0);
     const target = Math.max(0, Math.min(world.w - CFG.W, player.x + player.w / 2 - CFG.W / 2 + player.face * 20));
     cam += (target - cam) * Math.min(1, dt * 6);
     if (player.dead && player.deadT > 1 && state === "play") setState("dead");
@@ -31,6 +32,7 @@
     if (state === "play") { if (Input.pauseP) setState("pause"); else update(dt); }
     else if (state === "pause") { if (Input.pauseP) setState("play"); }
     else if (state === "dead") update(dt);
+    else if (state === "menu") cam = (cam + dt * 14) % (world.w - CFG.W);   // slow pan behind the title
     Input.endFrame();
   }
   function loop(ts) {
@@ -45,8 +47,13 @@
   $("quit").onclick = () => { reset(); setState("menu"); };
   $("retry").onclick = () => { reset(); setState("play"); };
   $("pbtn").onclick = () => setState("pause");
+  $("snd").onclick = () => { Sfx.on = !Sfx.on; $("snd").textContent = "Sound: " + (Sfx.on ? "on" : "off"); };
+  $("shk").onclick = () => { Fx.shakeOn = !Fx.shakeOn; $("shk").textContent = "Screen shake: " + (Fx.shakeOn ? "on" : "off"); };
+  addEventListener("pointerdown", () => Sfx.unlock()); addEventListener("keydown", () => Sfx.unlock());
   document.addEventListener("visibilitychange", () => { if (document.hidden && state === "play") setState("pause"); });
   addEventListener("error", e => { const b = $("err"); b.textContent = "Error: " + e.message + " (" + String(e.filename || "").split("/").pop() + ":" + e.lineno + ")"; b.classList.remove("hidden"); });
 
+  for (let i = 0; i < 18; i++) { const e = document.createElement("i"); e.className = "ember";
+    e.style.cssText = `left:${Math.random() * 100}%;animation-duration:${6 + Math.random() * 7}s;animation-delay:${-Math.random() * 10}s;--dx:${(Math.random() - .5) * 12}cqw`; $("menu").prepend(e); }
   reset(); setState("menu"); requestAnimationFrame(t => { last = t; loop(t); });
 })();

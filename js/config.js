@@ -3,10 +3,11 @@
 const CFG = {
   W: 480, H: 270, T: 16, GRAV: 1500,
   player: { w: 12, h: 26, speed: 110, jump: 480, hp: 5, inv: 0.9, coyote: 0.1, buffer: 0.12,
+    dodge: { dur: 0.26, speed: 230, inv: 0.24, cd: 0 },
     atk: { dur: 0.32, from: 0.08, to: 0.18, reach: 26, h: 22, dmg: 1, knock: 130, moveMul: 0.35 } },
   enemies: {
     husk: { w: 14, h: 24, hp: 3, speed: 32, chase: 52, sight: 110, color: "#6e5a50",
-      atk: { range: 22, windup: 0.5, active: 0.12, recover: 0.55, reach: 24, dmg: 1, knock: 150 } }
+      atk: { range: 22, windup: 0.55, active: 0.12, recover: 0.55, reach: 24, dmg: 1, knock: 150 } }
   },
   // Level: sizes are in tiles (1 tile = 16 pixels). Platform = [x, y, width, height optional]
   level: { cols: 80, rows: 17, ground: 15, spawn: [3, 15],
