@@ -26,6 +26,12 @@ const Sfx = {
     step() { this.noise(0.04, 400, 0.05); },
     warn() { this.tone(880, 700, 0.3, "triangle", 0.12); this.tone(1320, 1100, 0.25, "sine", 0.05); },
     dodge() { this.noise(0.18, 3200, 0.14); },
+    bell() { this.tone(98, 96, 1.8, "sine", 0.25); this.tone(196, 190, 1.4, "sine", 0.12); this.tone(392, 380, 1.0, "sine", 0.06); },
+    clink() { this.tone(1800, 1200, 0.08, "square", 0.05); this.noise(0.05, 5000, 0.15); },
+    chain() { this.noise(0.15, 2500, 0.18); this.tone(180, 90, 0.1, "sawtooth", 0.08); },
+    chime() { this.tone(1320, 1300, 0.5, "sine", 0.04); },
+    wave() { this.noise(0.4, 200, 0.2); this.tone(80, 40, 0.4, "sine", 0.25); },
+    shrine() { this.tone(523, 520, 0.9, "sine", 0.1); this.tone(784, 780, 1.1, "sine", 0.08); },
     die() { this.tone(110, 40, 0.8, "sawtooth", 0.2); },
     edie() { this.tone(160, 50, 0.5, "triangle", 0.2); }
   }
