@@ -1,6 +1,8 @@
 "use strict";
 // Game flow: menu -> play -> pause / dead / win. Fixed 60 updates per second keeps physics steady.
 (function () {
+  // Audio must never prevent gameplay from starting if music.js fails to load.
+  const MusicSafe = (typeof Music !== "undefined") ? Music : { on: false, start() {}, setMode() {}, setOn(v) { this.on = v; } };
   const $ = id => document.getElementById(id), T = CFG.T, L = CFG.level, world = new World(L);
   let player, enemies = [], boss = null, cam = 0, state = "menu", acc = 0, last = 0, time = 0, cp = { x: L.spawn[0] * T }, fight = false, won = false, endT = 0, bellCd = 0;
   Render.init(world);
@@ -23,7 +25,7 @@
     state = s;
     for (const id of ["menu", "pause", "dead", "win"]) $(id).classList.toggle("hidden", s !== id);
     $("pbtn").classList.toggle("hidden", s !== "play");
-    Music.setMode(s === "menu" || s === "pause" || s === "win" ? "menu" : s === "dead" ? "dead" : fight ? "boss" : "game");
+    MusicSafe.setMode(s === "menu" || s === "pause" || s === "win" ? "menu" : s === "dead" ? "dead" : fight ? "boss" : "game");
   }
   function ring() {   // the bell: strike it and a hidden bridge answers
     bellCd = 0.8; const x = bellRect.x + 12, y = bellRect.y + 14;
@@ -49,8 +51,8 @@
     const a = CFG.player.atk;
     if (player.atk >= a.from && player.atk <= a.to && bellCd <= 0 && ov(player.hitbox(), bellRect)) ring();
     for (const col of L.shrines) if (!world.shrines.has(col) && player.ground && !player.dead && Math.abs(player.x + 6 - (col * T + 15)) < 20) activate(col);
-    if (boss && !won && !fight && !player.dead && player.x > (L.gate[0] + 1) * T) { fight = true; world.gate = true; boss.wake(); toast("The Bell Keeper stirs"); Music.setMode("boss"); Sfx.play("bell"); Fx.shake = 0.4; }
-    if (boss && fight && !boss.alive() && !won) { won = true; fight = false; world.gate = false; endT = 0; toast("The bells remember"); Music.setMode("game"); Sfx.play("bell"); }
+    if (boss && !won && !fight && !player.dead && player.x > (L.gate[0] + 1) * T) { fight = true; world.gate = true; boss.wake(); toast("The Bell Keeper stirs"); MusicSafe.setMode("boss"); Sfx.play("bell"); Fx.shake = 0.4; }
+    if (boss && fight && !boss.alive() && !won) { won = true; fight = false; world.gate = false; endT = 0; toast("The bells remember"); MusicSafe.setMode("game"); Sfx.play("bell"); }
     if (won) { endT += dt; if (endT > 3.5 && state === "play") setState("win"); }
     for (const v of Fx.waves) {   // floor waves from the boss: jump or dodge through them
       v.x += v.vx * dt; v.life -= dt; if (world.solid(Math.floor(v.x / T), L.ground - 1)) v.life = 0;
@@ -86,23 +88,7 @@
     if (Render.ready) Render.draw(world, player, enemies, cam, time);
   }
   window.Game = { get player() { return player; }, get enemies() { return enemies; }, get state() { return state; }, get cam() { return cam; }, world, get boss() { return boss; }, get cp() { return cp; }, get won() { return won; } };
-  function startFromMenu() {
-    try {
-      newGame();
-      setState("play");
-      // Make the state visible for debugging on mobile without opening devtools.
-      const b = $("err"); b.classList.add("hidden"); b.textContent = "";
-    } catch (e) {
-      const b = $("err"); b.textContent = "Could not start game: " + (e && e.message ? e.message : String(e)); b.classList.remove("hidden");
-      console.error("Hollow Vesper start failed", e);
-    }
-  }
-  const startButton = $("start");
-  startButton.addEventListener("click", startFromMenu);
-  // pointerup is a fallback for mobile browsers where click activation is interrupted.
-  startButton.addEventListener("pointerup", function (e) {
-    if (e.pointerType === "touch" && state === "menu") startFromMenu();
-  });
+  $("start").onclick = () => { newGame(); setState("play"); };
   $("again").onclick = () => { newGame(); setState("play"); };
   $("resume").onclick = () => setState("play");
   $("quit").onclick = () => { newGame(); setState("menu"); };
@@ -110,8 +96,8 @@
   $("pbtn").onclick = () => setState("pause");
   $("snd").onclick = () => { Sfx.on = !Sfx.on; $("snd").textContent = "Sound: " + (Sfx.on ? "on" : "off"); };
   $("shk").onclick = () => { Fx.shakeOn = !Fx.shakeOn; $("shk").textContent = "Screen shake: " + (Fx.shakeOn ? "on" : "off"); };
-  $("mus").onclick = () => { Music.setOn(!Music.on); $("mus").textContent = "Music: " + (Music.on ? "on" : "off"); };
-  const wake = () => { Sfx.unlock(); Music.start(); }; addEventListener("pointerdown", wake); addEventListener("keydown", wake);
+  $("mus").onclick = () => { MusicSafe.setOn(!MusicSafe.on); $("mus").textContent = "MusicSafe: " + (MusicSafe.on ? "on" : "off"); };
+  const wake = () => { Sfx.unlock(); MusicSafe.start(); }; addEventListener("pointerdown", wake); addEventListener("keydown", wake);
   document.addEventListener("visibilitychange", () => { if (document.hidden && state === "play") setState("pause"); });
   addEventListener("error", e => { const b = $("err"); b.textContent = "Error: " + e.message + " (" + String(e.filename || "").split("/").pop() + ":" + e.lineno + ")"; b.classList.remove("hidden"); });
   for (let i = 0; i < 18; i++) { const e = document.createElement("i"); e.className = "ember";
