@@ -86,7 +86,23 @@
     if (Render.ready) Render.draw(world, player, enemies, cam, time);
   }
   window.Game = { get player() { return player; }, get enemies() { return enemies; }, get state() { return state; }, get cam() { return cam; }, world, get boss() { return boss; }, get cp() { return cp; }, get won() { return won; } };
-  $("start").onclick = () => { newGame(); setState("play"); };
+  function startFromMenu() {
+    try {
+      newGame();
+      setState("play");
+      // Make the state visible for debugging on mobile without opening devtools.
+      const b = $("err"); b.classList.add("hidden"); b.textContent = "";
+    } catch (e) {
+      const b = $("err"); b.textContent = "Could not start game: " + (e && e.message ? e.message : String(e)); b.classList.remove("hidden");
+      console.error("Hollow Vesper start failed", e);
+    }
+  }
+  const startButton = $("start");
+  startButton.addEventListener("click", startFromMenu);
+  // pointerup is a fallback for mobile browsers where click activation is interrupted.
+  startButton.addEventListener("pointerup", function (e) {
+    if (e.pointerType === "touch" && state === "menu") startFromMenu();
+  });
   $("again").onclick = () => { newGame(); setState("play"); };
   $("resume").onclick = () => setState("play");
   $("quit").onclick = () => { newGame(); setState("menu"); };
