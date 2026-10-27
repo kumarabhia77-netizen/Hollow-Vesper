@@ -3,24 +3,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <title>Hollow Vesper</title><link rel="stylesheet" href="css/style.css"></head>
 <body><div id="stage">
-<script>
-// Early diagnostics: show startup errors even if a later game script fails to load.
-window.addEventListener("error", function (e) {
-  var box = document.getElementById("err");
-  if (box) { box.textContent = "Startup error: " + (e.message || "script failed to load") + (e.filename ? " (" + e.filename.split("/").pop() + ":" + e.lineno + ")" : ""); box.classList.remove("hidden"); }
-});
-window.addEventListener("unhandledrejection", function (e) {
-  var box = document.getElementById("err");
-  if (box) { box.textContent = "Startup error: " + (e.reason && e.reason.message ? e.reason.message : String(e.reason)); box.classList.remove("hidden"); }
-});
-</script>
 <canvas id="game" width="960" height="540"></canvas>
-<div id="menu" class="screen"><h1>Hollow Vesper</h1><div class="rule"></div><p>The bells have stopped. Something still answers.</p><button id="start">Begin</button><small>Move: A / D or arrows. Jump: Space. Strike: J. Dodge: Shift. Pause: P. Tap once to start the music.</small></div>
+<div id="menu" class="screen"><h1>Hollow Vesper</h1><div class="rule"></div><p>The bells have stopped. Something still answers.</p><button id="start">Begin</button><small>Move: A / D or arrows. Jump: Space. Strike: J. Dodge: Shift. Cast: K (needs echo from hits). Pause: P. Tap once to start the music.</small></div>
 <div id="pause" class="screen hidden"><h2>Paused</h2><button id="resume">Resume</button><button id="mus">Music: on</button><button id="snd">Sound: on</button><button id="shk">Screen shake: on</button><button id="quit">Main menu</button></div>
 <div id="dead" class="screen hidden"><h2>You have fallen</h2><button id="retry">Rise again</button></div>
 <div id="win" class="screen hidden"><h2>The Bell Keeper falls</h2><p>Somewhere in the ruins, a bell remembers its voice.</p><button id="again">Play again</button></div>
 <button id="pbtn" class="hidden">II</button>
-<div id="touch"><div class="pad"><button data-btn="l">&#9664;</button><button data-btn="r">&#9654;</button></div><div class="pad"><button data-btn="a">Strike</button><button data-btn="e">Dodge</button><button data-btn="j">Jump</button></div></div>
+<div id="touch"><div class="pad"><button data-btn="l">&#9664;</button><button data-btn="r">&#9654;</button></div><div class="pad"><button data-btn="a">Strike</button><button data-btn="e">Dodge</button><button data-btn="j">Jump</button><button data-btn="c">Cast</button></div></div>
 <div id="err" class="hidden"></div>
 </div>
 <script src="js/config.js"></script><script src="js/input.js"></script><script src="js/sfx.js"></script><script src="js/music.js"></script><script src="js/world.js"></script>
