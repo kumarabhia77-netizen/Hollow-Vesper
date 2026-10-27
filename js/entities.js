@@ -1,22 +1,24 @@
 "use strict";
 // Player and enemy behaviour. Numbers come from CFG so they are easy to tune.
-const Fx = { shake: 0, hitstop: 0, parts: [], ghosts: [], rings: [], pl: null, waves: [], toast: null, shakeOn: true };
+const Fx = { shake: 0, hitstop: 0, parts: [], ghosts: [], rings: [], fx: [], bolts: [], pl: null, waves: [], toast: null, shakeOn: true };
 const ov = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 function spark(x, y, col, n) { for (let i = 0; i < n; i++) Fx.parts.push({ x, y, vx: (Math.random() - .5) * 120, vy: -Math.random() * 90, life: .35 + Math.random() * .2, col }); }
 
-function hitFx(x, y, dir) {   // contact flash: ring plus ember and bone streaks flying away from the blow
+function vfx(k, x, y, d, sc, o) { if (Fx.fx.length > 70) return; o = o || {}; Fx.fx.push({ k, x, y, d, sc: sc || 1, t: -(o.delay || 0), face: o.face || 1, rot: o.rot || 0, flipY: o.flipY || 0 }); }   // sprite effect from assets/vfx.png
+function hitFx(x, y, dir) {   // contact flash: sprite spark and slash, ring, ember and bone streaks
+  vfx("spark", x, y, 0.18, 0.55); vfx("hitslash", x, y, 0.2, 0.32, { face: dir, rot: (Math.random() - 0.5) * 1.2 });
   Fx.rings.push({ x, y, life: 0.18, d: 0.18, c: "#d9cfbd", r: 3, g: 12 });
   for (let i = 0; i < 12; i++) { if (Fx.parts.length > 160) break; const a = (Math.random() - 0.5) * 1.6;
     Fx.parts.push({ x, y, vx: Math.cos(a) * dir * (60 + Math.random() * 110), vy: Math.sin(a) * 90 - 20, g: 200, s: 2, life: 0.2 + Math.random() * 0.2, col: i % 3 ? "#c8553d" : "#d9cfbd" }); }
 }
-function dust(x, y, n) { for (let i = 0; i < n; i++) { if (Fx.parts.length > 160) break;
+function dust(x, y, n) { vfx("dust", x, y, 0.35, 0.2); for (let i = 0; i < n; i++) { if (Fx.parts.length > 160) break;
   Fx.parts.push({ x: x + (Math.random() - 0.5) * 8, y, vx: (Math.random() - 0.5) * 50, vy: -8 - Math.random() * 18, g: 25, s: 3, life: 0.3 + Math.random() * 0.2, col: "#5b5560" }); } }
 function ember(x, y, n) { for (let i = 0; i < n; i++) { if (Fx.parts.length > 160) break;
   Fx.parts.push({ x: x + (Math.random() - 0.5) * 10, y, vx: (Math.random() - 0.5) * 30, vy: -20 - Math.random() * 40, g: -10, s: 2, life: 0.5 + Math.random() * 0.4, col: "#c8553d" }); } }
 
 class Player {
   constructor(x, y) { Object.assign(this, { w: CFG.player.w, h: CFG.player.h, x, y, vx: 0, vy: 0, face: 1, hp: CFG.player.hp,
-    ground: false, atk: -1, inv: 0, hurt: 0, dead: false, deadT: 0, coy: 0, buf: 0, hits: null, t: 0, combo: 0, queued: false, pushT: 0, pushV: 0, lunged: false, landT: 0, dodge: -1, dcd: 0, stepT: 0, gh: 0 }); }
+    ground: false, atk: -1, inv: 0, hurt: 0, dead: false, deadT: 0, coy: 0, buf: 0, hits: null, t: 0, echo: 0, cast: -1, castFired: false, combo: 0, queued: false, pushT: 0, pushV: 0, lunged: false, landT: 0, dodge: -1, dcd: 0, stepT: 0, gh: 0 }); }
   hitbox() { const a = CFG.player.atk, r = a.reach + (this.combo ? 4 : 0); return { x: this.face > 0 ? this.x + this.w : this.x - r, y: this.y + 2, w: r, h: a.h }; }
   damage(d, dir, knock) {
     if (this.inv > 0 || this.dead) return;
@@ -35,6 +37,12 @@ class Player {
       if (this.gh <= 0) { this.gh = 0.02; Fx.ghosts.push({ x: this.x, y: this.y, face: this.face, life: 0.42, f: Math.min(2, Math.floor(this.dodge / c.dodge.dur * 3)) }); if (this.ground) dust(this.x + 6, this.y + 25, 1); }
       if (this.dodge >= c.dodge.dur) { this.dodge = -1; this.vx = 0; }
     } else if (!this.dead && this.hurt <= 0) {
+      if (this.cast >= 0) {   // Ashen Bolt: plant your feet and send an ember sigil forward
+        this.cast += dt; this.vx = 0;
+        if (!this.castFired && this.cast >= 0.3) { this.castFired = true; Fx.bolts.push({ x: this.face > 0 ? this.x + this.w + 6 : this.x - 6, y: this.y + 13, dir: this.face, life: 1.3, t: 0 }); Sfx.play("bolt"); Fx.shake = Math.max(Fx.shake, 0.1); }
+        if (this.cast >= c.castDur) this.cast = -1;
+      } else {
+      if (Input.castP && this.echo >= c.castCost && this.atk < 0 && this.ground) { this.cast = 0; this.castFired = false; this.echo -= c.castCost; Sfx.play("cast"); }
       const dir = (Input.right ? 1 : 0) - (Input.left ? 1 : 0);
       this.vx = dir * c.speed * (this.atk >= 0 ? c.atk.moveMul : 1);
       if (this.pushT > 0) { this.vx += this.pushV; this.pushT -= dt; }   // sword lunge or shield recoil
@@ -43,14 +51,15 @@ class Player {
       if (this.buf > 0 && this.coy > 0) { this.vy = -c.jump; this.buf = 0; this.coy = 0; }
       if (!Input.jump && this.vy < -120) this.vy += CFG.GRAV * 1.5 * dt;   // release jump early = short hop
       if (Input.atkP && this.atk < 0) { this.atk = 0; this.hits = new Set(); this.lunged = false; this.combo = 0; this.queued = false; Sfx.play("swing"); }
+      }
     }
     if (this.atk >= 0 && !this.dead) {
       const a = c.atk; this.atk += dt;
-      if (!this.lunged && this.atk >= a.from) { this.lunged = true; this.pushT = 0.12; this.pushV = this.face * 75; dust(this.x + 6 - this.face * 6, this.y + 26, 3); }
+      if (!this.lunged && this.atk >= a.from) { this.lunged = true; this.pushT = 0.12; this.pushV = this.face * 75; dust(this.x + 6 - this.face * 6, this.y + 26, 3); if (this.combo) vfx("slash", this.x + 6 + this.face * 16, this.y + 14, 0.22, 0.3, { face: this.face, flipY: 1 }); }
       if (this.atk > a.to && Input.atkP) this.queued = true;   // press again late in the swing for the second strike
       if (this.atk >= a.from && this.atk <= a.to) {
         const box = this.hitbox();
-        for (const e of enemies) if (e.alive() && !this.hits.has(e) && ov(box, e)) { this.hits.add(e); e.damage(a.dmg, this.face, a.knock * (this.combo ? 1.4 : 1)); } // one hit per swing
+        for (const e of enemies) if (e.alive() && !this.hits.has(e) && ov(box, e)) { this.hits.add(e); e.damage(a.dmg, this.face, a.knock * (this.combo ? 1.4 : 1)); this.echo = Math.min(c.echoMax, this.echo + 1); } // one hit per swing
       }
       if (this.atk >= a.dur) { if (this.queued) { this.queued = false; this.combo ^= 1; this.atk = 0; this.hits = new Set(); this.lunged = false; Sfx.play("swing"); } else { this.atk = -1; this.combo = 0; } }
     }
@@ -116,7 +125,7 @@ class Boss extends Enemy {
       case "idle": this.face = dx > 0 ? 1 : -1; this.vx = dist > d.range * 0.7 ? this.face * d.speed * sp : 0;
         if (this.t > 0.9 / sp) { const near = dist < d.range * 1.2;
           if (near) this.atkType = "sweep"; else if (this.phase >= 2) this.atkType = "wave"; else { this.t = 0.6; break; }
-          if (this.atkType === "wave") Fx.rings.push({ x: this.x + this.w / 2, y: gy - 2, life: d.windup / sp, d: d.windup / sp, c: "#c8553d", r: 4, g: 30 });
+          if (this.atkType === "wave") vfx("rune", this.x + this.w / 2 + this.face * 34, gy - 3, d.windup / sp, 0.45);
           this.go("windup"); } break;
       case "windup": this.vx = 0; if (this.t >= d.windup / sp) { this.go("attack"); if (this.atkType === "wave") this.fire(gy); } break;
       case "attack": this.vx = 0; if (this.atkType === "sweep" && !this.fx) { this.fx = true; const tx = this.face > 0 ? this.x + this.w + d.atk.reach : this.x - d.atk.reach; dust(tx, this.y + this.h, 8); Fx.shake = Math.max(Fx.shake, 0.18); Sfx.play("chain"); }

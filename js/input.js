@@ -1,13 +1,13 @@
 "use strict";
 // Keyboard and touch buttons both feed one Input object.
-const Input = { left: false, right: false, jump: false, jumpP: false, atkP: false, pauseP: false,
-  endFrame() { this.jumpP = this.atkP = this.pauseP = false; } };
+const Input = { left: false, right: false, jump: false, jumpP: false, dodgeP: false, castP: false, atkP: false, pauseP: false,
+  endFrame() { this.castP = this.dodgeP = this.jumpP = this.atkP = this.pauseP = false; } };
 (function () {
   const map = { ArrowLeft: "l", KeyA: "l", ArrowRight: "r", KeyD: "r", Space: "j", ArrowUp: "j", KeyW: "j",
-    KeyJ: "a", KeyX: "a", KeyZ: "a", KeyP: "p", Escape: "p", F3: "d" };
+    KeyJ: "a", KeyX: "a", KeyZ: "a", KeyK: "c", KeyV: "c", ShiftLeft: "e", ShiftRight: "e", KeyL: "e", KeyC: "e", KeyP: "p", Escape: "p", F3: "d" };
   const key = {}, touch = {};
   const sync = () => { Input.left = !!(key.l || touch.l); Input.right = !!(key.r || touch.r); Input.jump = !!(key.j || touch.j); };
-  const press = k => { if (k === "j") Input.jumpP = true; if (k === "a") Input.atkP = true; if (k === "p") Input.pauseP = true; };
+  const press = k => { if (k === "j") Input.jumpP = true; if (k === "a") Input.atkP = true; if (k === "e") Input.dodgeP = true; if (k === "c") Input.castP = true; if (k === "p") Input.pauseP = true; };
   addEventListener("keydown", e => { const k = map[e.code]; if (!k) return; e.preventDefault();
     if (!e.repeat) { press(k); if (k === "d") CFG.debug = !CFG.debug; } key[k] = true; sync(); });
   addEventListener("keyup", e => { const k = map[e.code]; if (!k) return; key[k] = false; sync(); });
