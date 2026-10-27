@@ -26,7 +26,7 @@ small{font-size:1.6cqw;color:#8d8374}
 #menu p{opacity:0;animation:fade 1.5s 1.4s forwards}
 #menu small{opacity:0;animation:fade 1.5s 2.8s forwards}
 #menu button{opacity:0;animation:fade 1.2s 2.2s forwards,glow 2.8s 3.4s ease-in-out infinite}
-.ember{position:absolute;bottom:-2cqw;width:.5cqw;height:.5cqw;border-radius:50%;background:#e07a4a;box-shadow:0 0 1cqw #c8553d;opacity:0;pointer-events:none;animation:float linear infinite}
+.ember{position:absolute;bottom:-2cqw;width:.5cqw;height:.5cqw;border-radius:50%;background:#c8553d;box-shadow:0 0 1cqw #c8553d;opacity:0;pointer-events:none;animation:float linear infinite}
 .screen:not(#menu):not(.hidden){animation:fade .4s both}
 #dead h2{color:#a33a3a;text-shadow:0 0 3cqw #6b1d24;animation:rise 1.6s ease-out both}
 @keyframes rise{from{opacity:0;letter-spacing:.9em;filter:blur(6px)}to{opacity:1;letter-spacing:.3em;filter:blur(0)}}
@@ -36,3 +36,11 @@ small{font-size:1.6cqw;color:#8d8374}
 @keyframes glow{50%{box-shadow:0 0 2cqw #8a2c2c;border-color:#c8553d}}
 @keyframes float{0%{transform:translate(0,0);opacity:0}10%{opacity:.9}100%{transform:translate(var(--dx),-110cqh);opacity:0}}
 @media (prefers-reduced-motion:reduce){.ember{display:none}#menu h1,#menu button{animation:fade 1s both}}
+
+/* touch controls use the supplied UI art */
+.pad button{background:center/contain no-repeat transparent;border:none;border-radius:0;color:transparent;font-size:0;width:11cqw;height:11cqw;filter:drop-shadow(0 0 .6cqw rgba(0,0,0,.7));opacity:.9}
+.pad button:active{filter:brightness(1.5) drop-shadow(0 0 1cqw #c8553d)}
+.pad{gap:1.4cqw}
+.pad button[data-btn=a]{background-image:url(../assets/ui_sword.png)}.pad button[data-btn=e]{background-image:url(../assets/ui_dash.png)}.pad button[data-btn=j]{background-image:url(../assets/ui_jump.png)}.pad button[data-btn=c]{background-image:url(../assets/ui_bell.png)}
+.pad button[data-btn=l],.pad button[data-btn=r]{background-image:url(../assets/ui_pad.png);color:#d9cfbd;font-size:4.5cqw;width:12cqw;height:12cqw}
+#pbtn{background:url(../assets/ui_pause.png) center/contain no-repeat transparent;border:none;color:transparent;font-size:0;width:6cqw;height:6cqw;border-radius:0}
