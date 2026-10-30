@@ -4,14 +4,72 @@
 <title>Hollow Vesper</title><link rel="stylesheet" href="css/style.css"></head>
 <body><div id="stage">
 <canvas id="game" width="960" height="540"></canvas>
-<div id="menu" class="screen"><h1>Hollow Vesper</h1><div class="rule"></div><p>The bells have stopped. Something still answers.</p><button id="start">Begin</button><small>Move: A / D or arrows. Jump: Space. Strike: J. Dodge: Shift. Cast: K (needs echo from hits). Pause: P. Tap once to start the music.</small></div>
-<div id="pause" class="screen hidden"><h2>Paused</h2><button id="resume">Resume</button><button id="mus">Music: on</button><button id="snd">Sound: on</button><button id="shk">Screen shake: on</button><button id="quit">Main menu</button></div>
+
+<div id="menu" class="screen"><h1>Hollow Vesper</h1><div class="rule"></div><p>The bells have stopped. Something still answers.</p>
+<button id="start">Begin</button><button id="cont" class="hidden">Continue</button>
+<small>Move: A / D or arrows. Jump: Space. Sword: J. Dash: Shift. Magic: K and I. Bell: B. Map: M. Pause: P. Tap once to start the music. A game controller works too.</small></div>
+
+<div id="pause" class="screen hidden"><h2>Paused</h2><div class="menu">
+<button id="resume">Resume</button><button data-ui="map">World Map</button><button data-ui="magic">Magic &amp; Resonance</button><button disabled title="No relics exist in the game yet">Relics (none yet)</button>
+<button data-ui="controls">Controls</button><button data-ui="settings">Settings</button><button id="quit">Main menu</button></div></div>
+
+<div id="s-map" class="screen sub hidden">
+<div class="bar"><button data-back>&#9664; Back</button><button id="rprev" title="Previous region">&#9664;</button><b id="rname">Cathedral Gate</b><button id="rnext" title="Next region">&#9654;</button><span class="sp"></span><button id="zout" title="Zoom out">&minus;</button><button id="zin" title="Zoom in">+</button><button id="zc" title="Centre on me">&#9678;</button></div>
+<div class="mapwrap"><canvas id="mapc"></canvas>
+<div id="maphint" class="hint hidden"><b>How to use the map</b><br>Drag to move. Pinch or use + and - to zoom. The &#9678; button centres the map on you. Rooms appear when you enter them.<br><button id="maphintok">Got it</button></div></div>
+<div id="legend" class="legend"></div><div class="cur"><span id="curarea"></span> <i id="rnote"></i></div></div>
+
+<div id="s-magic" class="screen sub hidden">
+<div class="bar"><button data-back>&#9664; Back</button><b>Magic &amp; Resonance</b><span class="sp"></span><span id="mecho"></span></div>
+<div class="tabs" id="mtabs"></div>
+<div class="mbody"><div class="mgrid" id="mgrid"></div><div class="mdetail" id="mdetail"></div></div>
+<div class="pager"><button id="mprev">&#9664;</button><span id="mpage"></span><button id="mnext">&#9654;</button></div></div>
+
+<div id="s-controls" class="screen sub hidden">
+<div class="bar"><button data-back>&#9664; Back</button><b>Controls</b></div>
+<div class="form">
+<div class="row"><span>On-screen controls</span><select id="c-touch"><option value="auto">Automatic (hide when a controller is connected)</option><option value="on">Always show</option><option value="off">Never show</option></select></div>
+<div class="row"><button id="c-edit">Customize controller layout</button><button id="c-reset">Reset layout</button></div>
+<div class="row dim" id="c-pad"></div>
+<div class="row"><b>Keyboard</b><button id="c-keyreset">Reset keys</button></div>
+<div id="c-keys" class="keys"></div></div></div>
+
+<div id="s-settings" class="screen sub hidden">
+<div class="bar"><button data-back>&#9664; Back</button><b>Settings</b></div>
+<div class="form">
+<div class="row"><span>Music volume</span><input id="s-music" type="range" min="0" max="1" step="0.05"></div>
+<div class="row"><span>Sound effects volume</span><input id="s-sfx" type="range" min="0" max="1" step="0.05"></div>
+<div class="row"><span>Screen shake</span><input id="s-shake" type="checkbox"></div>
+<div class="row"><span>On-screen controls</span><select id="s-touch"><option value="auto">Automatic</option><option value="on">Always</option><option value="off">Never</option></select></div>
+<div class="row"><span>Vibration on touch</span><input id="s-vib" type="checkbox"></div>
+<div class="row"><span>Music quality</span><select id="s-lite"><option value="light">Light (phones)</option><option value="full">Full (computers)</option></select></div>
+<div class="row dim" id="s-litenote"></div></div></div>
+
+<div id="touchedit" class="hidden"><b id="te-name"></b>
+<label>Size <input id="te-size" type="range" min="6" max="16" step="0.5"></label>
+<label>Opacity <input id="te-op" type="range" min="0.3" max="1" step="0.05"></label>
+<label>Dead zone <input id="te-dead" type="range" min="0.05" max="0.6" step="0.05"></label>
+<label>Sensitivity <input id="te-sens" type="range" min="0.5" max="2" step="0.1"></label>
+<label>Pad style <select id="te-mode"><option value="dpad">D-pad</option><option value="stick">Stick</option></select></label>
+<label><input id="te-hand" type="checkbox"> Left-handed</label><label><input id="te-vis" type="checkbox"> Show this button</label>
+<div class="row"><button id="te-reset">Reset</button><button id="te-cancel">Cancel</button><button id="te-done">Done</button></div>
+<small>Drag a button to move it. Tap a button to select it.</small></div>
+
+<div id="confirm" class="screen hidden"><p id="confirm-msg"></p><div class="row"><button id="confirm-yes">Yes</button><button id="confirm-no">No</button></div></div>
 <div id="dead" class="screen hidden"><h2>You have fallen</h2><button id="retry">Rise again</button></div>
 <div id="win" class="screen hidden"><h2>The Bell Keeper falls</h2><p>Somewhere in the ruins, a bell remembers its voice.</p><button id="again">Play again</button></div>
-<button id="pbtn" class="hidden">II</button>
-<div id="touch"><div class="pad"><button data-btn="l">&#9664;</button><button data-btn="r">&#9654;</button></div><div class="pad"><button data-btn="a">Strike</button><button data-btn="e">Dodge</button><button data-btn="j">Jump</button><button data-btn="c">Cast</button></div></div>
+<button id="pbtn" class="hidden" title="Pause">II</button>
+<div id="touch"></div>
 <div id="err" class="hidden"></div>
 </div>
-<script src="js/config.js"></script><script src="js/input.js"></script><script src="js/sfx.js"></script><script src="js/music.js"></script><script src="js/world.js"></script>
-<script src="js/entities.js"></script><script src="js/anims.js"></script><script src="js/render.js"></script><script src="js/main.js"></script>
+<script src="js/config.js"></script><script src="js/save.js"></script><script src="js/input.js"></script><script src="js/sfx.js"></script><script src="js/music.js"></script><script src="js/spells.js"></script>
+<script src="js/world.js"></script><script src="js/entities.js"></script><script src="js/anims.js"></script><script src="js/render.js"></script><script src="js/touch.js"></script><script src="js/ui.js"></script><script src="js/main.js"></script>
+<script>
+// Safety check: every game file must be the newest version. If one is old or missing, say exactly which.
+(function () {
+  var need = { config: 10, save: 10, input: 10, sfx: 10, music: 10, spells: 10, world: 10, entities: 10, anims: 10, render: 10, touch: 10, ui: 10, main: 10 }, have = window.HV_V || {}, bad = [];
+  for (var k in need) if (have[k] !== need[k]) bad.push("js/" + k + ".js (" + (have[k] === undefined ? "missing, broken or too old" : "version " + have[k] + ", needs " + need[k]) + ")");
+  if (bad.length) { window.HV_MSG = "Please upload the newest: " + bad.join(", "); var e = document.getElementById("err"); e.textContent = window.HV_MSG; e.classList.remove("hidden"); var s = document.getElementById("start"); if (s) s.disabled = true; }
+})();
+</script>
 </body></html>
