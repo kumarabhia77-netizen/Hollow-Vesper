@@ -1,9 +1,15 @@
 "use strict";
+(window.HV_V = window.HV_V || {}).entities = 10;
 // Player and enemy behaviour. Numbers come from CFG so they are easy to tune.
-const Fx = { shake: 0, hitstop: 0, parts: [], ghosts: [], rings: [], fx: [], bolts: [], pl: null, waves: [], toast: null, shakeOn: true };
+const Fx = { shake: 0, hitstop: 0, parts: [], ghosts: [], rings: [], fx: [], bolts: [], strikes: [], flash: 0, noEcho: 0, pl: null, waves: [], toast: null, shakeOn: true };
 const ov = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 function spark(x, y, col, n) { for (let i = 0; i < n; i++) Fx.parts.push({ x, y, vx: (Math.random() - .5) * 120, vy: -Math.random() * 90, life: .35 + Math.random() * .2, col }); }
 
+const VOICES = {   // which creature sound plays when an enemy enters each state
+  husk: { notice: "groan", windup: "growl", attack: "rasp", hurt: "cry", dead: "wail" }, bound: { notice: "wail", windup: "groan", attack: "scream", hurt: "cry", dead: "wail" },
+  mourner: { notice: "laugh", appear: "laugh", windup: "screech", attack: "scream", hurt: "cry", dead: "wail" }, sentinel: { notice: "roar", windup: "growl", attack: "roar", hurt: "grunt", dead: "roar" },
+  boss: { windup: "growl", attack: "roar", roar: "bossroar", dead: "bossroar" }, chime: { swarm: "whisper" } };
+function enemyVoice(e, s) { const k = e.boss ? "boss" : e.sentinel ? "sentinel" : e.chime ? "chime" : e.atlas === "husk_b" ? "bound" : e.atlas === "husk_m" ? "mourner" : "husk", n = (VOICES[k] || {})[s]; if (n) Sfx.at(n, e.x + e.w / 2, e.pitch); }
 function vfx(k, x, y, d, sc, o) { if (Fx.fx.length > 70) return; o = o || {}; Fx.fx.push({ k, x, y, d, sc: sc || 1, t: -(o.delay || 0), face: o.face || 1, rot: o.rot || 0, flipY: o.flipY || 0 }); }   // sprite effect from assets/vfx.png
 function hitFx(x, y, dir) {   // contact flash: sprite spark and slash, ring, ember and bone streaks
   vfx("spark", x, y, 0.18, 0.55); vfx("hitslash", x, y, 0.2, 0.32, { face: dir, rot: (Math.random() - 0.5) * 1.2 });
@@ -18,12 +24,12 @@ function ember(x, y, n) { for (let i = 0; i < n; i++) { if (Fx.parts.length > 16
 
 class Player {
   constructor(x, y) { Object.assign(this, { w: CFG.player.w, h: CFG.player.h, x, y, vx: 0, vy: 0, face: 1, hp: CFG.player.hp,
-    ground: false, atk: -1, inv: 0, hurt: 0, dead: false, deadT: 0, coy: 0, buf: 0, hits: null, t: 0, echo: 0, cast: -1, castFired: false, combo: 0, queued: false, pushT: 0, pushV: 0, lunged: false, landT: 0, dodge: -1, dcd: 0, stepT: 0, gh: 0 }); }
+    ground: false, atk: -1, inv: 0, hurt: 0, dead: false, deadT: 0, coy: 0, buf: 0, hits: null, t: 0, echo: 0, cast: -1, castSpell: null, castFired: false, combo: 0, queued: false, pushT: 0, pushV: 0, lunged: false, landT: 0, dodge: -1, dcd: 0, stepT: 0, gh: 0 }); }
   hitbox() { const a = CFG.player.atk, r = a.reach + (this.combo ? 4 : 0); return { x: this.face > 0 ? this.x + this.w : this.x - r, y: this.y + 2, w: r, h: a.h }; }
   damage(d, dir, knock) {
     if (this.inv > 0 || this.dead) return;
     this.hp = Math.max(0, this.hp - d); this.inv = CFG.player.inv; this.hurt = 0.25; this.vx = dir * knock; this.vy = -140; this.atk = -1;
-    Fx.shake = 0.25; spark(this.x + 6, this.y + 12, "#c8553d", 8); this.dodge = -1; Sfx.play("hurt");
+    Fx.shake = 0.25; spark(this.x + 6, this.y + 12, "#c8553d", 8); Spells.refund(this); this.dodge = -1; Sfx.play("hurt");
     if (this.hp === 0) { this.dead = true; Sfx.play("die"); }
   }
   update(dt, world, enemies) {
@@ -37,12 +43,12 @@ class Player {
       if (this.gh <= 0) { this.gh = 0.02; Fx.ghosts.push({ x: this.x, y: this.y, face: this.face, life: 0.42, f: Math.min(2, Math.floor(this.dodge / c.dodge.dur * 3)) }); if (this.ground) dust(this.x + 6, this.y + 25, 1); }
       if (this.dodge >= c.dodge.dur) { this.dodge = -1; this.vx = 0; }
     } else if (!this.dead && this.hurt <= 0) {
-      if (this.cast >= 0) {   // Ashen Bolt: plant your feet and send an ember sigil forward
-        this.cast += dt; this.vx = 0;
-        if (!this.castFired && this.cast >= 0.3) { this.castFired = true; Fx.bolts.push({ x: this.face > 0 ? this.x + this.w + 6 : this.x - 6, y: this.y + 13, dir: this.face, life: 1.3, t: 0 }); Sfx.play("bolt"); Fx.shake = Math.max(Fx.shake, 0.1); }
-        if (this.cast >= c.castDur) this.cast = -1;
+      if (this.cast >= 0) {   // casting: plant your feet; the spell leaves at the middle of the animation
+        const sp = Spells.def(this.castSpell); this.cast += dt; this.vx = 0;
+        if (!this.castFired && this.cast >= sp.cast * 0.5) { this.castFired = true; Spells.fire(this.castSpell, this); }
+        if (this.cast >= sp.cast) this.cast = -1;
       } else {
-      if (Input.castP && this.echo >= c.castCost && this.atk < 0 && this.ground) { this.cast = 0; this.castFired = false; this.echo -= c.castCost; Sfx.play("cast"); }
+      if (Input.cast2P) Spells.tryCast(1, this); else if (Input.castP) Spells.tryCast(0, this); else if (Input.bellP) Spells.tryCast("bell", this);
       const dir = (Input.right ? 1 : 0) - (Input.left ? 1 : 0);
       this.vx = dir * c.speed * (this.atk >= 0 ? c.atk.moveMul : 1);
       if (this.pushT > 0) { this.vx += this.pushV; this.pushT -= dt; }   // sword lunge or shield recoil
@@ -71,9 +77,9 @@ class Player {
 
 class Enemy {
   constructor(type, x, y) { const d = CFG.enemies[type]; this.d = d;
-    Object.assign(this, { type, w: d.w, h: d.h, x, y, vx: 0, vy: 0, face: -1, hp: d.hp, st: "patrol", t: 0, ground: false, did: false, flash: 0, gone: false }); }
+    Object.assign(this, { type, pitch: 0.9 + Math.random() * 0.25, w: d.w, h: d.h, x, y, vx: 0, vy: 0, face: -1, hp: d.hp, st: "patrol", t: 0, ground: false, did: false, flash: 0, gone: false }); }
   alive() { return this.st !== "dead"; }
-  go(s) { this.st = s; this.t = 0; this.did = false; this.fx = false; if (s === "windup") Sfx.play("warn"); }
+  go(s) { this.st = s; this.t = 0; this.did = false; this.fx = false; if (s === "windup") Sfx.play("warn"); try { enemyVoice(this, s); } catch (e) {} }
   hitbox() { return { x: this.face > 0 ? this.x + this.w : this.x - this.d.atk.reach, y: this.y + this.h * 0.45, w: this.d.atk.reach, h: this.h * 0.55 }; }
   blocked(world) { const T = world.T, tx = Math.floor((this.x + (this.face > 0 ? this.w + 2 : -2)) / T), ty = Math.floor((this.y + this.h + 2) / T);
     return this.wall || !world.solid(tx, ty); }
@@ -109,7 +115,7 @@ class Enemy {
 // The Bell Keeper: a large chained bell-bearer with three phases. Phase 1 sweeps its chain, phase 2 adds a floor wave you must jump or dodge, phase 3 is faster.
 class Boss extends Enemy {
   constructor(x, y) { super("husk", x, y); const b = CFG.boss; Object.assign(this, { d: b, w: b.w, h: b.h, hp: b.hp, maxhp: b.hp, st: "sleep", face: -1, atkType: "sweep", phase: 1, boss: true, sc: 1.76 }); }
-  wake() { this.go("idle"); }
+  wake() { this.go("idle"); Sfx.at("bossroar", this.x + this.w / 2); }
   damage(n, dir) {
     if (!this.alive() || this.st === "sleep" || this.st === "roar") return;
     this.hp -= n; this.flash = 0.1; Fx.shake = 0.12; Fx.hitstop = 0.06; Sfx.play("hit"); hitFx(this.x + this.w / 2, this.y + this.h * 0.4, dir);

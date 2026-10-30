@@ -1,4 +1,5 @@
 "use strict";
+(window.HV_V = window.HV_V || {}).config = 10;
 // All game numbers live here. Change a number, reload, see the difference.
 const CFG = {
   W: 320, H: 180, CAMY: 92, T: 16, GRAV: 1500,
@@ -14,7 +15,11 @@ const CFG = {
       atk: { range: 36, windup: 0.55, active: 0.16, recover: 0.55, reach: 36, dmg: 1, knock: 150 } }
   },
   // Level: sizes are in tiles (1 tile = 16 pixels). Platform = [x, y, width, height optional]
-  level: { cols: 80, rows: 17, ground: 15, spawn: [3, 15], pit: [46, 14], bridge: [46, 14], gate: [69, 9, 6], shrines: [5, 63], bell: 42,
+  level: {
+    areas: [{ id: "gate", name: "Gate Courtyard", c: [0, 19], type: "courtyard" }, { id: "yard", name: "The Silent Yard", c: [19, 41], type: "courtyard" }, { id: "tower", name: "Bell Landing", c: [41, 46], type: "tower" },
+      { id: "span", name: "The Hollow Span", c: [46, 60], type: "chasm" }, { id: "rise", name: "Shrine Rise", c: [60, 68], type: "chapel" }, { id: "arena", name: "The Keeper's Arena", c: [68, 80], type: "boss" }],
+    regions: [{ id: "gate", name: "Cathedral Gate", areas: ["gate", "yard", "tower", "span", "rise", "arena"] }],
+    cols: 80, rows: 17, ground: 15, spawn: [3, 15], pit: [46, 14], bridge: [46, 14], gate: [69, 9, 6], shrines: [5, 63], bell: 42,
     platforms: [[12, 11, 5], [19, 9, 4], [30, 12, 6], [36, 10, 4]],
     props: [["shrine",5],["tree",1],["torch",9],["fence",11],["statue",14],["banner",17],["barrel",21],["crate",23],["lantern",27],["torch",33],["cart",35],["bell",42],["lantern",50],["banner2",55],["brazier",61],["shrine",63],["torch",66],["rubble",72],["statue2",74],["torch",77]],
     enemies: [[20, "husk"], [27, "husk"], [33, "bound"], [39, "sentinel"], [64, "mourner"], [67, "husk"], [76, "keeper"]], chimes: [[50, 8], [53, 7], [56, 8]] },

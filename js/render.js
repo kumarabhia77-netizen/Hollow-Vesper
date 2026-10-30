@@ -1,4 +1,5 @@
 "use strict";
+(window.HV_V = window.HV_V || {}).render = 10;
 // Everything that draws. Pictures come from the assets/ folder; swap a PNG to change the look.
 function propBox(name, col) {   // where a prop sits in the world (shared by drawing and effects)
   const p = PROPS[name], h = p.h, w = p.r[2] * h / p.r[3];
@@ -102,6 +103,7 @@ const Render = {
     for (const [lx, ly0, r, a] of lights) { const ly = ly0 - Y, g = cx.createRadialGradient(lx, ly, 2, lx, ly, r); g.addColorStop(0, `rgba(200,85,61,${a})`); g.addColorStop(1, "rgba(0,0,0,0)"); cx.fillStyle = g; cx.fillRect(lx - r, ly - r, r * 2, r * 2); }
     cx.globalCompositeOperation = "source-over";
     const v = cx.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, W * 0.65); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.55)"); cx.fillStyle = v; cx.fillRect(0, 0, W, H);
+    if (Fx.flash > 0) { cx.fillStyle = `rgba(217,207,189,${Math.min(0.5, Fx.flash * 1.6)})`; cx.fillRect(0, 0, W, H); }   // lightning flash
     if (p.hurt > 0 && !p.dead) { cx.fillStyle = `rgba(107,29,36,${Math.min(0.45, p.hurt * 1.8)})`; cx.fillRect(0, 0, W, H); }
     this.hud(p, es); if (CFG.debug) this.debug(p, es, cm);
     cx.restore();
@@ -138,9 +140,16 @@ const Render = {
       cx.save(); cx.translate(Math.round(f.x - cm), Math.round(f.y)); cx.scale(f.face, f.flipY ? -1 : 1); if (f.rot) cx.rotate(f.rot);
       cx.globalAlpha = Math.min(1, (f.d - f.t) / (f.d * 0.35)); if (ADD[f.k]) cx.globalCompositeOperation = "lighter";
       cx.drawImage(V, q[0], q[1], q[2], q[3], -w / 2, GROUND[f.k] ? -h : -h / 2, w, h); cx.restore(); }
-    const fb = VFXD.fireball.frames;
-    for (const b of Fx.bolts) { const q = fb[1 + Math.floor(b.t * 14) % 3], w = q[2] * 0.55, h = q[3] * 0.55;
+    const fb = VFXD.fireball.frames, sl = VFXD.slash.frames, gy = CFG.level.ground * CFG.T;
+    for (const b of Fx.bolts) {
+      if (b.kind === "wind") { const q = sl[2], w = q[2] * 0.3, h = q[3] * 0.3; cx.save(); cx.translate(Math.round(b.x - cm), Math.round(b.y)); cx.scale(b.dir, 1); cx.globalAlpha = Math.min(1, b.life * 4); cx.drawImage(V, q[0], q[1], q[2], q[3], -w / 2, -h / 2, w, h); cx.restore(); continue; }
+      const q = fb[1 + Math.floor(b.t * 14) % 3], w = q[2] * 0.55, h = q[3] * 0.55;
       cx.save(); cx.translate(Math.round(b.x - cm), Math.round(b.y)); cx.scale(b.dir, 1); cx.globalCompositeOperation = "lighter"; cx.drawImage(V, q[0], q[1], q[2], q[3], -w * 0.7, -h / 2, w, h); cx.restore(); }
+    for (const s of Fx.strikes) {   // Lightning Strike: a pale warning line, then a jagged bolt from the sky
+      const X = Math.round(s.x - cm); if (s.t < Spells.def("lightning").delay) { cx.globalAlpha = 0.25 + 0.2 * Math.sin(s.t * 40); cx.fillStyle = "#d9cfbd"; cx.fillRect(X - 0.5, CFG.CAMY, 1, gy - CFG.CAMY); cx.globalAlpha = 1; }
+      else if (s.t < 0.6) { const seed = Math.floor(s.t * 40); cx.save(); cx.globalCompositeOperation = "lighter"; cx.lineJoin = "round";
+        for (const [wd, col, al] of [[7, "#c8553d", 0.3], [2.5, "#d9cfbd", 1]]) { cx.lineWidth = wd; cx.strokeStyle = col; cx.globalAlpha = al * Math.min(1, (0.6 - s.t) * 6); cx.beginPath(); cx.moveTo(X, CFG.CAMY);
+          for (let y = CFG.CAMY + 14, k = 0; y < gy; y += 14, k++) cx.lineTo(X + ((((seed * 31 + k * 17) % 13) - 6) * 1.1), y); cx.lineTo(X, gy); cx.stroke(); } cx.restore(); } }
   },
   player(p, cm) {   // pick the animation and frame from what the Warden is doing
     const cx = this.cx, A = this.img.player, H = ANIMS.player, a = CFG.player.atk; if (p.inv > 0 && p.dodge < 0 && !p.dead && Math.floor(p.t * 18) % 2) return;
@@ -148,7 +157,7 @@ const Render = {
     if (p.dead) { an = "death"; i = Math.min(5, Math.floor(p.deadT * 8)); }
     else if (p.hurt > 0) { an = "hurt"; i = p.hurt > 0.12 ? 0 : 1; }
     else if (p.dodge >= 0) { an = "dash"; i = Math.min(2, Math.floor(p.dodge / CFG.player.dodge.dur * 3)); }
-    else if (p.cast >= 0) { an = "cast"; i = Math.min(5, Math.floor(p.cast / CFG.player.castDur * 6)); }
+    else if (p.cast >= 0) { an = "cast"; const sd = Spells.def(p.castSpell); i = Math.min(5, Math.floor(p.cast / (sd ? sd.cast : 0.6) * 6)); }
     else if (p.atk >= 0) { an = "attack"; const t = p.atk, e = a.to + 0.04;
       i = t < a.from ? Math.floor(t / a.from * 2) : t < e ? 2 + Math.min(2, Math.floor((t - a.from) / (e - a.from) * 3)) : 5 + Math.min(2, Math.floor((t - e) / (a.dur - e) * 3)); }
     else if (!p.ground) { an = "jump"; i = p.vy < -250 ? 1 : p.vy < -80 ? 2 : p.vy < 80 ? 3 : 4; }
@@ -223,7 +232,12 @@ const Render = {
     cx.drawImage(U, 4, 4, U.width * k, U.height * k);
     const bar = (b, f, col) => { const x = 4 + b[0] * k, y = 4 + b[1] * k, w = (b[2] - b[0]) * k, h = (b[3] - b[1]) * k; cx.fillStyle = "rgba(12,11,17,.88)"; cx.fillRect(x + w * f, y, w * (1 - f) + 0.5, h);
       if (col) { cx.strokeStyle = col; cx.lineWidth = 0.6; cx.strokeRect(x - 0.5, y - 0.5, w + 1, h + 1); } };
-    bar(UIM.health, p.hp / CFG.player.hp); bar(UIM.echo, p.echo / CFG.player.echoMax, p.echo >= CFG.player.castCost ? "#c8553d" : null);
+    bar(UIM.health, p.hp / CFG.player.hp); bar(UIM.echo, p.echo / CFG.player.echoMax, Fx.noEcho > 0 && Math.floor(Fx.noEcho * 12) % 2 ? "#d9cfbd" : (p.echo >= 2 ? "#c8553d" : null));
+    for (let i = 0; i < 2; i++) {   // the two equipped spells: icon, key hint, recharge, and dimmed when there is not enough echo
+      const id = Save.data.spells.slots[i], x = 6 + i * 18, y = 34; cx.fillStyle = "rgba(12,11,17,.75)"; cx.fillRect(x, y, 16, 16); cx.strokeStyle = "#5b5560"; cx.lineWidth = 0.6; cx.strokeRect(x + 0.3, y + 0.3, 15.4, 15.4);
+      if (id) { const im = Spells.icon(id), s = Spells.def(id), cd = Spells.cd[id] || 0; if (im.complete && im.naturalWidth) { cx.globalAlpha = p.echo >= s.cost && cd <= 0 ? 1 : 0.4; cx.drawImage(im, x + 1, y + 1, 14, 14); cx.globalAlpha = 1; }
+        if (cd > 0) { cx.fillStyle = "rgba(12,11,17,.6)"; cx.fillRect(x, y + 16 * (1 - cd / s.cd), 16, 16 * (cd / s.cd)); } }
+      cx.fillStyle = "#d9cfbd"; cx.font = "5px Georgia,serif"; cx.fillText(i ? "I" : "K", x + 1, y + 21); }
     if (Fx.toast) { cx.globalAlpha = Math.min(1, Fx.toast.t); cx.fillStyle = "#d9cfbd"; cx.font = "9px Georgia, serif"; cx.textAlign = "center"; cx.fillText(Fx.toast.m, CFG.W / 2, 34); cx.textAlign = "left"; cx.globalAlpha = 1; }
     const b = es.find(e => e.boss && e.st !== "sleep" && e.alive());
     if (b) { const w = 150, x = (CFG.W - w) / 2, y = CFG.H - 16, k = Math.max(0, b.hp / b.maxhp);

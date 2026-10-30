@@ -1,4 +1,5 @@
 "use strict";
+(window.HV_V = window.HV_V || {}).world = 10;
 // The room: a grid of tiles (1 = solid stone) plus simple, predictable collision.
 class World {
   constructor(L) {
