@@ -38,7 +38,16 @@ button,select{font:inherit;color:#e3d6bd}
 .keys{display:grid;grid-template-columns:1fr 1fr;gap:.6cqw 2cqw}.krow{display:flex;justify-content:space-between;align-items:center;font-size:1.7cqw}
 #confirm{z-index:5;background:rgba(8,6,10,.92)}
 /* animated main menu */
-#menu{background:radial-gradient(ellipse at center,rgba(8,6,10,.3),rgba(5,4,8,.92));overflow:hidden}
+#menu{background:radial-gradient(ellipse at center,rgba(8,6,10,.18),rgba(5,4,8,.86));overflow:hidden}
+#menufx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#pause{background:rgba(8,6,10,.6)}
+#pause .menu button{animation:slidein .45s both}#pause .menu button:nth-child(2){animation-delay:.05s}#pause .menu button:nth-child(3){animation-delay:.1s}#pause .menu button:nth-child(4){animation-delay:.15s}#pause .menu button:nth-child(5){animation-delay:.2s}#pause .menu button:nth-child(6){animation-delay:.25s}#pause .menu button:nth-child(7){animation-delay:.3s}
+.screen button{position:relative;overflow:hidden;transition:border-color .25s,box-shadow .25s,transform .15s}
+.screen button::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,rgba(200,85,61,.3) 50%,transparent 70%);transform:translateX(-130%);pointer-events:none}
+.screen button:hover::after,.screen button:focus-visible::after{transform:translateX(130%);transition:transform .7s}
+.screen button:hover,.screen button:focus-visible{border-color:#c8553d;box-shadow:0 0 1.6cqw rgba(200,85,61,.45);transform:translateY(-1px)}
+.screen button:active{transform:scale(.97)}
+#menu .rule::after{content:"";position:absolute;top:-1px;left:0;width:6cqw;height:3px;background:radial-gradient(ellipse,#ffb48a,transparent 70%);animation:sweep 4s 3s ease-in-out infinite}
 #menu h1,#menu p,#menu button,#menu small,#menu .rule{position:relative;z-index:1}
 #menu h1{animation:rise 2.4s ease-out both,pulse 4.5s 2.4s ease-in-out infinite}
 #menu .rule{height:1px;width:0;background:linear-gradient(90deg,transparent,#c8553d,transparent);animation:grow 2s 1s forwards}
@@ -49,10 +58,10 @@ button,select{font:inherit;color:#e3d6bd}
 #dead h2{color:#a33a3a;text-shadow:0 0 3cqw #6b1d24;animation:rise 1.6s ease-out both}
 @keyframes rise{from{opacity:0;letter-spacing:.9em;filter:blur(6px)}to{opacity:1;letter-spacing:.3em;filter:blur(0)}}
 @keyframes pulse{50%{text-shadow:0 0 5cqw #c8553d,0 0 1cqw #8a2c2c}}
-@keyframes grow{to{width:40cqw}}@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes slidein{from{opacity:0;transform:translateX(-2cqw)}to{opacity:1;transform:none}}@keyframes sweep{0%{left:0;opacity:0}15%{opacity:1}85%{opacity:1}100%{left:calc(100% - 6cqw);opacity:0}}@keyframes grow{to{width:40cqw}}@keyframes fade{from{opacity:0}to{opacity:1}}
 @keyframes glow{50%{box-shadow:0 0 2cqw #8a2c2c;border-color:#c8553d}}
 @keyframes float{0%{transform:translate(0,0);opacity:0}10%{opacity:.9}100%{transform:translate(var(--dx),-110cqh);opacity:0}}
-@media (prefers-reduced-motion:reduce){.ember{display:none}#menu h1,#menu button{animation:fade 1s both}}
+@media (prefers-reduced-motion:reduce){.ember,#menufx,#menu .rule::after,.screen button::after{display:none}#menu h1,#menu button{animation:fade 1s both}}
 /* pause button and error box */
 #pbtn{position:absolute;top:1.5cqw;right:1.5cqw;width:5.5cqw;height:5.5cqw;font-size:2cqw;border-radius:50%;background:url(../assets/ui_pause.png) center/contain no-repeat transparent;border:none;color:transparent;font-size:0;z-index:2}
 #err{position:absolute;left:0;right:0;bottom:0;background:#5a1010;color:#fff;font:1.7cqw monospace;padding:.8cqw 1cqw;user-select:text;-webkit-user-select:text;z-index:9}
@@ -76,3 +85,8 @@ button,select{font:inherit;color:#e3d6bd}
 #touchedit{position:absolute;left:50%;top:1.5cqw;transform:translateX(-50%);z-index:4;background:rgba(12,11,17,.95);border:1px solid #8a6a52;padding:1cqw 1.6cqw;display:flex;flex-wrap:wrap;gap:.8cqw 2cqw;font-size:1.6cqw;max-width:96cqw;align-items:center;justify-content:center}
 #touchedit label{display:flex;align-items:center;gap:.6cqw}#touchedit input[type=range]{width:12cqw}#touchedit button{font-size:1.6cqw;padding:.4cqw 1.4cqw;background:#1a1820;border:1px solid #5b5560}
 #touchedit .row{gap:1cqw}
+.screen button:disabled:hover{background:transparent;border-color:#8a6a52;box-shadow:none;transform:none;outline:none}.screen button:disabled::after{display:none}
+#menu{isolation:isolate}
+#hero{position:absolute;z-index:-1;left:2cqw;bottom:0;height:80%;opacity:0;pointer-events:none;-webkit-mask-image:radial-gradient(ellipse at 45% 50%,#000 30%,transparent 70%);mask-image:radial-gradient(ellipse at 45% 50%,#000 30%,transparent 70%);filter:saturate(.85) drop-shadow(0 0 2cqw rgba(200,85,61,.3));animation:heroin 2.2s .3s ease-out forwards,herobreath 7s 2.5s ease-in-out infinite}
+@keyframes heroin{from{opacity:0;transform:translateX(-3cqw)}to{opacity:.62;transform:none}}@keyframes herobreath{0%,100%{opacity:.62}50%{opacity:.74}}
+@media (prefers-reduced-motion:reduce){#hero{animation:none;opacity:.6}}
