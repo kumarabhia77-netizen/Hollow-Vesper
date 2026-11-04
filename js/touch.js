@@ -4,9 +4,9 @@
 // Every control tracks its own finger, so several fingers can work at once. Layout, size, opacity and handedness can be customised and are saved.
 const Touch = {
   DEF: { pad: { x: 2.5, y: 3, s: 24, v: 1, core: 1 }, attack: { x: 72, y: 9.5, s: 10.5, v: 1, core: 1 }, jump: { x: 79.5, y: 3, s: 10.5, v: 1, core: 1 }, dodge: { x: 87, y: 9.5, s: 10.5, v: 1, core: 1 },
-    bell: { x: 79.5, y: 16.5, s: 9, v: 1 }, cast1: { x: 62, y: 4, s: 9, v: 1 }, cast2: { x: 62, y: 14.5, s: 7.5, v: 1 } },
-  NAMES: { pad: "Move pad", attack: "Sword (square)", jump: "Jump (cross)", dodge: "Dash (circle)", bell: "Bell (triangle)", cast1: "Magic slot 1", cast2: "Magic slot 2" },
-  GLYPH: { attack: "\u25A1", jump: "\u2715", dodge: "\u25CB", bell: "\u25B3" }, ART: { attack: "ui_sword", jump: "ui_jump", dodge: "ui_dash", bell: "ui_bell" },
+    bell: { x: 79.5, y: 16.5, s: 9, v: 1 }, cast1: { x: 62, y: 4, s: 9, v: 1 }, cast2: { x: 62, y: 14.5, s: 7.5, v: 1 }, weapon: { x: 88.5, y: 20.5, s: 7.5, v: 1 } },
+  NAMES: { pad: "Move pad", attack: "Attack (square)", weapon: "Switch weapon", jump: "Jump (cross)", dodge: "Dash (circle)", bell: "Bell (triangle)", cast1: "Magic slot 1", cast2: "Magic slot 2" },
+  GLYPH: { attack: "\u25A1", jump: "\u2715", dodge: "\u25CB", bell: "\u25B3", weapon: "\u21C4" }, ART: { attack: "ui_sword", jump: "ui_jump", dodge: "ui_dash", bell: "ui_bell" },
   cfg: null, el: {}, st: {}, root: null, editing: false, sel: "attack", snap: null, drag: null, shown: null, cdv: {},
   defaults() { const o = { hand: "right", opacity: 0.9, mode: "dpad", dead: 0.22, sens: 1, ctl: {} }; for (const k in this.DEF) o.ctl[k] = Object.assign({}, this.DEF[k]); return o; },
   clean(c) {   // keep only sane saved values
@@ -43,12 +43,12 @@ const Touch = {
     ev.preventDefault(); if (this.editing) return this.dragStart(id, ev);
     const e = this.el[id]; if (this.st[id] !== undefined) return; this.st[id] = ev.pointerId; try { e.setPointerCapture(ev.pointerId); } catch (x) {} e.classList.add("on"); this.buzz();
     if (id === "pad") return this.padUpdate(ev);
-    const T = Input.touch; if (id === "jump") { T.j = true; Input.press("jump"); } else Input.press({ attack: "attack", dodge: "dodge", bell: "bell", cast1: "cast1", cast2: "cast2" }[id]); Input.sync();
+    const T = Input.touch; if (id === "jump") { T.j = true; Input.press("jump"); } else { if (id === "attack") T.a = true; Input.press({ attack: "attack", dodge: "dodge", bell: "bell", cast1: "cast1", cast2: "cast2", weapon: "weapon" }[id]); } Input.sync();
   },
   move(id, ev) { if (this.editing) return this.dragMove(id, ev); if (this.st[id] !== ev.pointerId) return; if (id === "pad") this.padUpdate(ev); },
   up(id, ev) {
     if (this.editing) return this.dragEnd(id, ev); if (this.st[id] !== ev.pointerId) return; delete this.st[id]; const e = this.el[id]; e.classList.remove("on");
-    const T = Input.touch; if (id === "pad") { T.l = T.r = T.u = T.d = false; this.knob(0, 0); e.classList.remove("l", "r", "u", "d"); } else if (id === "jump") T.j = false; Input.sync();
+    const T = Input.touch; if (id === "pad") { T.l = T.r = T.u = T.d = false; this.knob(0, 0); e.classList.remove("l", "r", "u", "d"); } else if (id === "jump") T.j = false; else if (id === "attack") T.a = false; Input.sync();
   },
   padUpdate(ev) {   // slide your thumb across the pad: direction follows the thumb, no need to lift
     const e = this.el.pad, r = e.getBoundingClientRect(), dx = (ev.clientX - (r.left + r.width / 2)) / (r.width / 2), dy = (ev.clientY - (r.top + r.height / 2)) / (r.height / 2), thr = Math.max(0.06, Math.min(0.7, this.cfg.dead / this.cfg.sens));

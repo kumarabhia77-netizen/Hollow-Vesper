@@ -86,12 +86,12 @@ const Render = {
     cx.globalCompositeOperation = "source-over"; this.loop(this.near, 0.5, 0.55, 0, cam, 0.85, true);
     cx.drawImage(this.tiles, cm * 2, Y * 2, W * 2, H * 2, 0, 0, W, H);
     cx.save(); cx.translate(0, -Y);
-    const lights = []; this.props(cm, t, lights, w); this.world(w, cm, t);
+    const lights = []; this.chancel(cm, t); this.props(cm, t, lights, w); this.world(w, cm, t);
     for (const e of es) if (e.alive() && !e.chime) this.shade(e.x + e.w / 2 - cm, e.y + e.h, e.boss ? 16 : 9);
     if (p.ground && !p.dead) this.shade(p.x + p.w / 2 - cm, p.y + p.h, 8);
     for (const e of es) this.enemy(e, cm);
     for (const v of Fx.waves) { cx.globalAlpha = Math.min(1, v.life); cx.fillStyle = "#d9cfbd"; cx.beginPath(); cx.ellipse(v.x - cm, v.y - 4, 7, 5, 0, 0, 6.283); cx.fill(); cx.fillStyle = "#c8553d"; cx.beginPath(); cx.ellipse(v.x - cm, v.y - 4, 4, 3, 0, 0, 6.283); cx.fill(); cx.globalAlpha = 1; }
-    this.ghosts(cm); this.player(p, cm); this.drawFx(cm);
+    this.ghosts(cm); this.player(p, cm); if (p.weapon === "whip") Whip.draw(cx, cm, p); Slayer.draw(cx, cm, p); this.drawFx(cm);
     for (const q of Fx.parts) { cx.globalAlpha = Math.min(1, q.life * 3); cx.fillStyle = q.col; cx.fillRect(Math.round(q.x - cm), Math.round(q.y), q.s || 2, q.s || 2); } cx.globalAlpha = 1;
     cx.restore();
     const f = cx.createLinearGradient(0, 90, 0, H); f.addColorStop(0, "rgba(91,85,96,0)"); f.addColorStop(1, "rgba(91,85,96,.3)"); cx.fillStyle = f; cx.fillRect(0, 90, W, H - 90);
@@ -99,12 +99,14 @@ const Render = {
       const g = cx.createRadialGradient(fx, fy, 3, fx, fy, 90); g.addColorStop(0, "rgba(154,146,142,.09)"); g.addColorStop(1, "rgba(154,146,142,0)"); cx.fillStyle = g; cx.fillRect(fx - 90, fy - 45, 180, 90); }
     cx.fillStyle = "rgba(217,207,189,.3)";
     for (const m of this.motes) cx.fillRect(Math.floor(((m.x + t * m.s - cam * 0.5) % W + W) % W), Math.floor((m.y + Math.sin(t + m.s) * 4 + H) % H), 1, 1);
+    this.ash(cx, cam, t, p); this.fg(cx, cam, t);
     cx.globalCompositeOperation = "lighter"; lights.push([p.x + 6 - cm, p.y + 10, 70, 0.2]);
     for (const [lx, ly0, r, a] of lights) { const ly = ly0 - Y, g = cx.createRadialGradient(lx, ly, 2, lx, ly, r); g.addColorStop(0, `rgba(200,85,61,${a})`); g.addColorStop(1, "rgba(0,0,0,0)"); cx.fillStyle = g; cx.fillRect(lx - r, ly - r, r * 2, r * 2); }
-    cx.globalCompositeOperation = "source-over";
+    cx.globalCompositeOperation = "source-over"; this.grading(cx, p, W, H);
     const v = cx.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, W * 0.65); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.55)"); cx.fillStyle = v; cx.fillRect(0, 0, W, H);
     if (Fx.flash > 0) { cx.fillStyle = `rgba(217,207,189,${Math.min(0.5, Fx.flash * 1.6)})`; cx.fillRect(0, 0, W, H); }   // lightning flash
     if (p.hurt > 0 && !p.dead) { cx.fillStyle = `rgba(107,29,36,${Math.min(0.45, p.hurt * 1.8)})`; cx.fillRect(0, 0, W, H); }
+    if (!p.dead && p.hp <= 1) { const k = 0.5 + 0.5 * Math.sin(t * 5), lv = cx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.62); lv.addColorStop(0, "rgba(107,29,36,0)"); lv.addColorStop(1, `rgba(107,29,36,${0.12 + 0.2 * k})`); cx.fillStyle = lv; cx.fillRect(0, 0, W, H); }   // heartbeat when one hit from death
     this.hud(p, es); if (CFG.debug) this.debug(p, es, cm);
     cx.restore();
   },
@@ -114,7 +116,8 @@ const Render = {
     if (w.bridge) { const a = Math.min(1, w.bridgeT / 1.2); cx.globalAlpha = a;
       for (let i = 0; i < L.bridge[1]; i++) cx.drawImage(I, 3 * cw + 4, 4, cw - 8, ch - 8, (L.bridge[0] + i) * T - cm, gy, T, T);
       cx.globalAlpha = a * (0.5 + 0.5 * Math.sin(t * 4)); cx.fillStyle = "#c8553d"; cx.fillRect(L.bridge[0] * T - cm, gy, L.bridge[1] * T, 1); cx.globalAlpha = 1; }
-    if (w.gate) { const q = PROPS.gate.r; cx.drawImage(this.img.props, q[0], q[1], q[2], q[3], L.gate[0] * T - cm - 3, L.gate[1] * T, 22, L.gate[2] * T); }
+    if (w.gate) { const q = PROPS.gate.r; for (const g of [L.gate, L.gate2]) cx.drawImage(this.img.props, q[0], q[1], q[2], q[3], g[0] * T - cm - 3, g[1] * T, 22, g[2] * T); }
+    if (w.gate2) { const q = PROPS.gate.r; cx.drawImage(this.img.props, q[0], q[1], q[2], q[3], L.gate3[0] * T - cm - 3, L.gate3[1] * T, 22, L.gate3[2] * T); }
   },
   props(cm, t, lights, w) {
     const cx = this.cx, I = this.img.props;
@@ -158,18 +161,22 @@ const Render = {
     else if (p.hurt > 0) { an = "hurt"; i = p.hurt > 0.12 ? 0 : 1; }
     else if (p.dodge >= 0) { an = "dash"; i = Math.min(2, Math.floor(p.dodge / CFG.player.dodge.dur * 3)); }
     else if (p.cast >= 0) { an = "cast"; const sd = Spells.def(p.castSpell); i = Math.min(5, Math.floor(p.cast / (sd ? sd.cast : 0.6) * 6)); }
-    else if (p.atk >= 0) { an = "attack"; const t = p.atk, e = a.to + 0.04;
-      i = t < a.from ? Math.floor(t / a.from * 2) : t < e ? 2 + Math.min(2, Math.floor((t - a.from) / (e - a.from) * 3)) : 5 + Math.min(2, Math.floor((t - e) / (a.dur - e) * 3)); }
+    else if (p.sp === 4 && p.atk >= 0) { an = "dash"; i = 2; }   // Shadow-Step Thrust uses the stretched dash pose
+    else if (p.atk >= 0) { an = "attack"; const m = p.move(); i = p.atk < m.from ? 0 : p.atk < m.to + 0.04 ? [5, 6, 7, 6][p.sp >= 0 || p.fin ? 3 : Math.min(2, p.combo)] : 5; }
+    else if (p.chg > 0) { an = "attack"; i = 5; }   // holding the charge: calm stance, leaning back   // whip poses use the calm stance frames so the old sword arc is never drawn
     else if (!p.ground) { an = "jump"; i = p.vy < -250 ? 1 : p.vy < -80 ? 2 : p.vy < 80 ? 3 : 4; }
     else if (p.landT > 0) { an = "jump"; i = 5; }
     else if (Math.abs(p.vx) > 10) { an = "run"; i = Math.floor(p.t * H.run.fps) % 6; }
     else i = Math.floor(p.t * H.idle.fps) % 7;
     const s = H[an].scale, f = H[an].frames[i], h = f[3] * s;
     cx.save(); cx.translate(Math.round(p.x + p.w / 2 - cm), Math.round(p.y + p.h)); cx.scale(p.face, 1);
+    if (p.chg > 0 && p.atk < 0) cx.transform(1, 0, 0.08, 1, 0, 0);
+    if (p.atk >= 0) { const m = p.move(), lean = p.atk >= m.from ? 0.1 * Math.max(0, 1 - (p.atk - m.from) / (m.dur - m.from)) : -0.05 * (p.atk / m.from); cx.transform(1, 0, -lean, 1, 0, 0); }   // lean into the lash
     cx.globalAlpha = 0.28; for (const o of [-0.7, 0.7]) cx.drawImage(this.rim, f[0], f[1], f[2], f[3], -f[4] * s + o, -h + 1, f[2] * s, h); cx.globalAlpha = 1;   // faint bone rim so the dark Warden separates from the background
     cx.drawImage(A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, f[2] * s, h); cx.restore();
   },
-  enemy(e, cm) {   // pick the animation and frame that match the enemy's state
+  enemy(e, cm) {
+    if (e.bishop) return Bishop.draw(this.cx, e, cm);   // pick the animation and frame that match the enemy's state
     if (e.chime) return this.chime(e, cm); if (e.sentinel) return this.sentinel(e, cm);
     const cx = this.cx, A = this.img[e.atlas || "husk"], H = ANIMS.husk, d = e.d, wu = d.atk.windup || d.windup, rc = d.atk.recover || d.recover; let an = "walk", pr = -1;   // pr: progress 0..1 through a one-shot animation
     switch (e.st) {
@@ -180,6 +187,9 @@ const Render = {
       case "attack": an = "attack"; pr = e.t < 0.05 ? 0 : 1; break;
       case "recover": an = "recover"; pr = e.t / rc; break;
       case "hurt": an = "hurt"; pr = e.t / 0.3; break;
+      case "ringup": an = "notice"; pr = Math.min(0.99, e.t / d.ring.windup * 0.7); break;
+      case "ring": an = "notice"; pr = 0.99; break;
+      case "stagger": an = "hurt"; pr = Math.min(0.99, e.t / 0.55); break;
       case "roar": an = "notice"; pr = e.t / 0.9; break;
       case "sleep": an = "idle"; pr = 0; break;
       case "fade": an = "notice"; pr = 0.99; break;
@@ -189,12 +199,13 @@ const Render = {
     }
     const a = H[an], n = a.frames.length, i = pr < 0 ? Math.floor(e.t * a.fps) % n : Math.max(0, Math.min(n - 1, Math.floor(pr * n))), s = a.scale * (e.sc || 1), f = a.frames[i], w = f[2] * s, h = f[3] * s;
     cx.save(); cx.globalAlpha = e.st === "dead" ? Math.max(0, Math.min(1, 1 - (e.t - 1) / 0.6)) : (e.alpha === undefined ? 1 : e.alpha);
-    cx.translate(Math.round(e.x + e.w / 2 - cm), Math.round(e.y + e.h)); cx.scale(e.face, 1);
+    cx.translate(Math.round(e.x + e.w / 2 - cm), Math.round(e.y + e.h)); cx.scale(e.face, 1); if (e.canRing) Bellfx.pose(cx, e, an);
     cx.drawImage(A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h);
     if (e.st === "windup") { cx.globalCompositeOperation = "lighter"; cx.globalAlpha = 0.2 * (0.5 + 0.5 * Math.sin(e.t * 28)); cx.drawImage(A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h); }   // pulsing tell before the swing
     if (e.flash > 0) { cx.globalCompositeOperation = "lighter"; cx.globalAlpha = 0.6; cx.drawImage(A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h); }
-    cx.restore();
-    if (e.st === "windup") { cx.fillStyle = "#c8553d"; const x = Math.round(e.x + e.w / 2 - cm), k = e.sc || 1; cx.fillRect(x - 1, e.y - 40 * k, 2, 7); cx.fillRect(x - 1, e.y - 31 * k, 2, 2); }   // warning mark
+    if (e.canRing) { cx.globalAlpha = 1; Bellfx.glow(cx, e, f, s, h); }
+    cx.restore(); if (e.canRing) Bellfx.wave(cx, e, cm);
+    if (e.st === "windup" || e.st === "ringup") { cx.fillStyle = "#c8553d"; const x = Math.round(e.x + e.w / 2 - cm), k = e.sc || 1; cx.fillRect(x - 1, e.y - 40 * k, 2, 7); cx.fillRect(x - 1, e.y - 31 * k, 2, 2); }   // warning mark
   },
   sentinel(e, cm) {   // Iron Sentinel: Warden frames in iron grey, plus a code-drawn tower shield
     const cx = this.cx, H = ANIMS.player, d = e.d, pick = (n, t, dur) => Math.min(n - 1, Math.floor(t / dur * n)); let an = "idle", i = 0;
@@ -226,28 +237,73 @@ const Render = {
     cx.fillStyle = "#5b5560"; cx.fillRect(-5, 4, 10, 1.5);
     cx.globalAlpha *= sleep ? 0.45 : 0.7 + 0.3 * Math.sin(e.ph * 8); cx.fillStyle = "#c8553d"; cx.beginPath(); cx.arc(Math.sin(e.ph * 5) * 1.5, 6.5, 1.8, 0, 6.283); cx.fill(); cx.restore();
   },
+  chancel(cm, t) {   // Desecrated Chancel: tall stained-glass windows with coloured light falling on the floor (original design, muted palette)
+    const cx = this.cx, T = CFG.T, gy = CFG.level.ground * T, P = ["#2d4a6b", "#6b1d24", "#8a5a2a", "#1f3550", "#4a2a52"];
+    for (const col of [88, 95, 102]) { const x = col * T - cm, w = 34, h = 74, y = gy - h - 40; if (x < -80 || x > CFG.W + 80) continue;
+      cx.save(); cx.translate(x, y); cx.beginPath(); cx.moveTo(0, h); cx.lineTo(0, 16); cx.quadraticCurveTo(0, 0, w / 2, -6); cx.quadraticCurveTo(w, 0, w, 16); cx.lineTo(w, h); cx.closePath(); cx.fillStyle = "#0c0b11"; cx.fill(); cx.clip();
+      const bands = [["#1f3550", "#2d4a6b"], ["#2d4a6b", "#4a2a52"], ["#6b1d24", "#8a5a2a"], ["#6b1d24", "#4a2a52"], ["#8a5a2a", "#6b1d24"], ["#1f3550", "#2d4a6b"], ["#4a2a52", "#1f3550"]];   // vertical lancet: coloured bands with a diamond lead lattice
+      for (let r = 0; r < 7; r++) { const g2 = cx.createLinearGradient(0, r * 10.4, w, r * 10.4 + 10); g2.addColorStop(0, bands[r][0]); g2.addColorStop(1, bands[r][1]); cx.globalAlpha = 0.7 + 0.15 * Math.sin(t * 0.8 + r + col); cx.fillStyle = g2; cx.fillRect(0, 2 + r * 10.4, w, 10.4); }
+      cx.globalAlpha = 1; cx.strokeStyle = "#0c0b11"; cx.lineWidth = 0.9; cx.beginPath(); for (let i = -8; i < 12; i++) { cx.moveTo(i * 8, 0); cx.lineTo(i * 8 + 70, 80); cx.moveTo(i * 8 + 70, 0); cx.lineTo(i * 8, 80); } cx.stroke();
+      cx.globalAlpha = 1; cx.strokeStyle = "#0c0b11"; cx.lineWidth = 1.2; cx.beginPath(); cx.moveTo(w / 2, -6); cx.lineTo(w / 2, h); cx.moveTo(0, 24); cx.lineTo(w, 24); cx.stroke(); cx.restore();
+      cx.strokeStyle = "#2a2630"; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(x, y + h); cx.lineTo(x, y + 16); cx.quadraticCurveTo(x, y, x + w / 2, y - 6); cx.quadraticCurveTo(x + w, y, x + w, y + 16); cx.lineTo(x + w, y + h); cx.stroke();
+      const g = cx.createLinearGradient(x, y + h, x + 30, gy); g.addColorStop(0, "rgba(120,90,140,.16)"); g.addColorStop(1, "rgba(120,90,140,0)"); cx.globalCompositeOperation = "lighter"; cx.fillStyle = g; cx.beginPath(); cx.moveTo(x + 2, y + h); cx.lineTo(x + w - 2, y + h); cx.lineTo(x + w + 40, gy); cx.lineTo(x + 18, gy); cx.closePath(); cx.fill(); cx.globalCompositeOperation = "source-over"; }
+  },
+  hero(cx, p) {   // portrait of the hero (the Vesper Warden), drawn inside the status frame
+    const im = this.heroImg || (this.heroImg = (() => { const i = new Image(); i.src = "assets/hero_portrait.png"; return i; })());
+    if (!im.complete || !im.naturalWidth) return; cx.save(); cx.beginPath(); cx.arc(17, 17, 10.5, 0, 6.283); cx.clip(); cx.drawImage(im, 6.5, 6.5, 21, 21); cx.restore();
+    cx.strokeStyle = "#5b5560"; cx.lineWidth = 1.2; cx.beginPath(); cx.arc(17, 17, 10.8, 0, 6.283); cx.stroke(); cx.strokeStyle = p.wsw > 0 ? "#c8553d" : "#2a2630"; cx.lineWidth = 0.6; cx.beginPath(); cx.arc(17, 17, 12, 0, 6.283); cx.stroke();
+  },
+  grading(cx, p, W, H) {   // each area gets its own soft colour mood; it fades smoothly as you walk between areas
+    const col = p.x / CFG.T, a = CFG.level.areas.find(a => col >= a.c[0] && col < a.c[1]), M = { courtyard: [70, 50, 90, 0.08], tower: [200, 85, 61, 0.07], chasm: [50, 70, 95, 0.13], chapel: [47, 70, 44, 0.12], boss: [107, 29, 36, 0.17], chancel: [107, 29, 36, 0.2] }, tg = M[a ? a.type : "courtyard"] || M.courtyard, g = this.gr || (this.gr = tg.slice());
+    for (let i = 0; i < 4; i++) g[i] += (tg[i] - g[i]) * 0.03; cx.fillStyle = `rgba(${g[0] | 0},${g[1] | 0},${g[2] | 0},${g[3]})`; cx.fillRect(0, 0, W, H);
+  },
+  ash(cx, cam, t, p) {   // falling ash and rising embers in front of the scene; positions come from time, so there is nothing to update
+    const W = CFG.W, H = CFG.H, A = this.flakes || (this.flakes = Array.from({ length: 34 }, (_, i) => ({ x: Math.random() * W, y: Math.random() * H, vx: 4 + Math.random() * 10, vy: 6 + Math.random() * 14, par: 0.6 + Math.random() * 0.7, em: i % 5 === 0 })));
+    for (const f of A) { const x = ((f.x + t * f.vx - cam * f.par) % (W + 20) + W + 20) % (W + 20) - 10, y = f.em ? H - ((f.y + t * f.vy * 1.4) % H) : (f.y + t * f.vy) % H, sway = Math.sin(t * 1.3 + f.x) * 2;
+      cx.globalAlpha = f.em ? 0.55 + 0.3 * Math.sin(t * 7 + f.x) : 0.3 + 0.12 * Math.sin(t * 2 + f.y); cx.fillStyle = f.em ? "#c8553d" : "#d9cfbd"; cx.fillRect(Math.round(x + sway), Math.round(y), f.em ? 1 : 1.2, 1); }
+    cx.globalAlpha = 1;
+  },
+  fg(cx, cam, t) {   // dark foreground silhouettes (chains, torn cloth, broken stone) along the top and bottom edges only, so they never cover fights or attack warnings
+    const W = CFG.W, H = CFG.H;
+    if (!this.fgc) { const c = document.createElement("canvas"); c.width = 640; c.height = H; const x = c.getContext("2d"); let sd = 7; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647, dark = "#07060a", rim = "#2a2630";
+      for (let i = 0; i < 9; i++) { const px = i * 71 + r() * 30, L = 12 + r() * 14;   // hanging chains
+        x.strokeStyle = dark; x.lineWidth = 1.6; for (let y = 0; y < L; y += 3) { x.beginPath(); x.ellipse(px, y + 1.5, 1.1, 1.8, 0, 0, 6.283); x.stroke(); } x.fillStyle = dark; x.fillRect(px - 2, L, 4, 3); }
+      for (let i = 0; i < 5; i++) { const px = 40 + i * 128 + r() * 40, w = 12 + r() * 10, L = 14 + r() * 12;   // torn cloth with a ragged hem
+        x.fillStyle = dark; x.beginPath(); x.moveTo(px, 0); x.lineTo(px + w, 0); for (let k = 0; k <= 5; k++) x.lineTo(px + w - k * (w / 5), L - (k % 2) * 5 - r() * 3); x.closePath(); x.fill(); x.fillStyle = rim; x.fillRect(px, 0, 1, L * 0.7); }
+      for (let i = 0; i < 6; i++) { const px = i * 110 + r() * 50, w = 30 + r() * 40; x.fillStyle = dark; x.beginPath(); x.moveTo(px, 0); x.lineTo(px + w, 0); for (let k = 5; k >= 0; k--) x.lineTo(px + k * (w / 5), 6 + r() * 9); x.closePath(); x.fill(); }   // broken stone lip
+      for (let i = 0; i < 22; i++) { const px = i * 30 + r() * 20, h = 5 + r() * 9; x.fillStyle = dark; x.beginPath(); x.moveTo(px - 3, H); x.lineTo(px, H - h); x.lineTo(px + 3 + r() * 3, H); x.closePath(); x.fill(); }   // rubble and dead grass at the very bottom
+      this.fgc = c; }
+    const off = -((cam * 1.35) % 640) + Math.sin(t * 0.6) * 1.2; this.cx.globalAlpha = 0.92; cx.drawImage(this.fgc, off, 0); cx.drawImage(this.fgc, off + 640, 0); cx.globalAlpha = 1;
+  },
   hud(p, es) {
     const cx = this.cx;
     const U = this.img.ui_status, k = 0.27;   // portrait with health and echo bars
     cx.drawImage(U, 4, 4, U.width * k, U.height * k);
     const bar = (b, f, col) => { const x = 4 + b[0] * k, y = 4 + b[1] * k, w = (b[2] - b[0]) * k, h = (b[3] - b[1]) * k; cx.fillStyle = "rgba(12,11,17,.88)"; cx.fillRect(x + w * f, y, w * (1 - f) + 0.5, h);
       if (col) { cx.strokeStyle = col; cx.lineWidth = 0.6; cx.strokeRect(x - 0.5, y - 0.5, w + 1, h + 1); } };
-    bar(UIM.health, p.hp / CFG.player.hp); bar(UIM.echo, p.echo / CFG.player.echoMax, Fx.noEcho > 0 && Math.floor(Fx.noEcho * 12) % 2 ? "#d9cfbd" : (p.echo >= 2 ? "#c8553d" : null));
-    for (let i = 0; i < 2; i++) {   // the two equipped spells: icon, key hint, recharge, and dimmed when there is not enough echo
-      const id = Save.data.spells.slots[i], x = 6 + i * 18, y = 34; cx.fillStyle = "rgba(12,11,17,.75)"; cx.fillRect(x, y, 16, 16); cx.strokeStyle = "#5b5560"; cx.lineWidth = 0.6; cx.strokeRect(x + 0.3, y + 0.3, 15.4, 15.4);
-      if (id) { const im = Spells.icon(id), s = Spells.def(id), cd = Spells.cd[id] || 0; if (im.complete && im.naturalWidth) { cx.globalAlpha = p.echo >= s.cost && cd <= 0 ? 1 : 0.4; cx.drawImage(im, x + 1, y + 1, 14, 14); cx.globalAlpha = 1; }
-        if (cd > 0) { cx.fillStyle = "rgba(12,11,17,.6)"; cx.fillRect(x, y + 16 * (1 - cd / s.cd), 16, 16 * (cd / s.cd)); } }
-      cx.fillStyle = "#d9cfbd"; cx.font = "5px Georgia,serif"; cx.fillText(i ? "I" : "K", x + 1, y + 21); }
+    if (p.weapon === "whip") Whip.hud(cx, p); else Slayer.hud(cx, p); this.hero(cx, p); bar(UIM.health, p.hp / CFG.player.hp); bar(UIM.echo, p.echo / CFG.player.echoMax, Fx.noEcho > 0 && Math.floor(Fx.noEcho * 12) % 2 ? "#d9cfbd" : (p.echo >= 2 ? "#c8553d" : null));
+    const ids = [Save.data.spells.slots[0], Save.data.spells.slots[1], Spells.has("bell") ? "bell" : null], keys = ["K", "I", "B"];   // quick spells: two slots plus Bell Resonance
+    for (let i = 0; i < 3; i++) {
+      const id = ids[i]; if (i === 2 && !id) continue; const x = 6 + i * 19, y = 34, sp = id && Spells.def(id), cd = id ? (Spells.cd[id] || 0) : 0, ready = !!sp && cd <= 0 && p.echo >= sp.cost, short = Fx.noEcho > 0 && Math.floor(Fx.noEcho * 12) % 2;
+      cx.fillStyle = "rgba(12,11,17,.82)"; cx.fillRect(x, y, 17, 17);
+      if (ready) { cx.globalCompositeOperation = "lighter"; cx.fillStyle = `rgba(200,85,61,${0.12 + 0.1 * Math.sin(p.t * 5)})`; cx.fillRect(x - 1.5, y - 1.5, 20, 20); cx.globalCompositeOperation = "source-over"; }
+      if (id) { const im = Spells.icon(id); if (im.complete && im.naturalWidth) { cx.globalAlpha = ready ? 1 : 0.4; cx.drawImage(im, x + 1.5, y + 1.5, 14, 14); cx.globalAlpha = 1; }
+        if (cd > 0) { cx.fillStyle = "rgba(12,11,17,.7)"; cx.beginPath(); cx.moveTo(x + 8.5, y + 8.5); cx.arc(x + 8.5, y + 8.5, 12, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (cd / sp.cd)); cx.closePath(); cx.save(); cx.beginPath(); cx.rect(x, y, 17, 17); cx.clip(); cx.fill(); cx.restore();
+          cx.fillStyle = "#d9cfbd"; cx.font = "5px Georgia,serif"; cx.textAlign = "center"; cx.fillText(cd.toFixed(1), x + 8.5, y + 10.5); cx.textAlign = "left"; }
+        for (let j = 0; j < sp.cost; j++) { cx.fillStyle = p.echo > j ? "#c8553d" : "#2a2630"; cx.fillRect(x + 1 + j * 2.6, y + 18.5, 2, 1.6); } }   // cost pips: lit when you can pay for them
+      else { cx.strokeStyle = "#3a3540"; cx.lineWidth = 0.5; cx.setLineDash([1.5, 1.5]); cx.strokeRect(x + 2, y + 2, 13, 13); cx.setLineDash([]); }
+      cx.strokeStyle = short && sp ? "#d9cfbd" : ready ? "#c8553d" : "#5b5560"; cx.lineWidth = 0.6; cx.strokeRect(x + 0.3, y + 0.3, 16.4, 16.4);
+      cx.fillStyle = "#0c0b11"; cx.fillRect(x + 11, y + 11, 6, 6); cx.fillStyle = "#d9cfbd"; cx.font = "5px Georgia,serif"; cx.fillText(keys[i], x + 12.2, y + 16); }
     if (Fx.toast) { cx.globalAlpha = Math.min(1, Fx.toast.t); cx.fillStyle = "#d9cfbd"; cx.font = "9px Georgia, serif"; cx.textAlign = "center"; cx.fillText(Fx.toast.m, CFG.W / 2, 34); cx.textAlign = "left"; cx.globalAlpha = 1; }
     const b = es.find(e => e.boss && e.st !== "sleep" && e.alive());
     if (b) { const w = 150, x = (CFG.W - w) / 2, y = CFG.H - 16, k = Math.max(0, b.hp / b.maxhp);
       cx.fillStyle = "rgba(12,11,17,.8)"; cx.fillRect(x - 2, y - 2, w + 4, 8); cx.fillStyle = "#6b1d24"; cx.fillRect(x, y, w * k, 4); cx.fillStyle = "#c8553d"; cx.fillRect(x + w * k - 1, y, 1, 4);
-      cx.strokeStyle = "#8d8374"; cx.lineWidth = 0.5; cx.strokeRect(x - 2, y - 2, w + 4, 8); cx.fillStyle = "#d9cfbd"; cx.font = "7px Georgia, serif"; cx.textAlign = "center"; cx.fillText("THE BELL KEEPER", CFG.W / 2, y - 5); cx.textAlign = "left"; }
+      cx.strokeStyle = "#8d8374"; cx.lineWidth = 0.5; cx.strokeRect(x - 2, y - 2, w + 4, 8); cx.fillStyle = "#d9cfbd"; cx.font = "7px Georgia, serif"; cx.textAlign = "center"; cx.fillText(b.bishop ? "THE CORPSE-STITCHED BISHOP" : "THE BELL KEEPER", CFG.W / 2, y - 5); cx.textAlign = "left"; }
   },
   debug(p, es, cm) {
     const cx = this.cx, Y = CFG.CAMY; cx.lineWidth = 0.6; const box = (r, c) => { cx.strokeStyle = c; cx.strokeRect(Math.round(r.x - cm) + .5, Math.round(r.y - Y) + .5, r.w, r.h); };
-    box(p, "#0f0"); if (p.atk >= CFG.player.atk.from && p.atk <= CFG.player.atk.to) box(p.hitbox(), "#ff0");
-    for (const e of es) { box(e, "#f33"); if (e.st === "attack") box(e.hitbox(), "#f80"); }
+    box(p, "#0f0"); if (p.atk >= 0 && p.atk >= p.move().from && p.atk <= p.move().to) box(p.hitbox(), "#ff0");
+    for (const e of es) { box(e, "#f33"); if (e.st === "attack") box(e.hitbox(), "#f80"); if (e.st === "ring" && e.rw) box({ x: e.x + e.w / 2 - e.rw.r, y: e.y + e.h - 10, w: e.rw.r * 2, h: 10 }, "#f80"); }
     cx.fillStyle = "#fff"; cx.font = "5px monospace"; cx.fillText(`hp ${p.hp} x ${Math.round(p.x)} y ${Math.round(p.y)} fps ${Math.round(this.fps || 0)}`, 4, CFG.H - 4);
   }
 };

@@ -4,7 +4,7 @@
 // Everything that can go wrong is caught, so one problem never freezes the game.
 (function () {
   const T = CFG.T, L = CFG.level, world = new World(L), shown = {};
-  let player, enemies = [], boss = null, cam = 0, state = "menu", acc = 0, last = 0, time = 0, cp = { x: L.spawn[0] * T }, fight = false, won = false, endT = 0, bellCd = 0, loaded = false;
+  let player, enemies = [], boss = null, cam = 0, state = "menu", acc = 0, last = 0, time = 0, cp = { x: L.spawn[0] * T }, fight = false, won = false, bishop = null, fight2 = false, won2 = false, endT = 0, bellCd = 0, loaded = false;
   const bellRect = { x: L.bell * T + 2, y: L.ground * T - 36, w: 24, h: 36 };
   const toast = m => { Fx.toast = { m, t: 3 }; };
   function report(e, label) {   // show a problem once, keep playing
@@ -14,7 +14,7 @@
   Settings.apply(); Render.init(world); Touch.init(); Input.rebuild();
 
   // ---------- progress ----------
-  function persist() { const d = Save.data; d.started = true; d.shrines = [...world.shrines]; d.bell = world.bridge; d.boss = won; d.cp = { x: cp.x }; Save.save(); }
+  function persist() { const d = Save.data; d.started = true; d.shrines = [...world.shrines]; d.bell = world.bridge; d.boss = won; d.bishop = won2; d.cp = { x: cp.x }; Save.save(); }
   function unlocks() { const got = Spells.refresh(); if (got.length) { toast("Spell unlocked: " + got[0] + " (open the Magic menu)"); Touch.icons(); Sfx.play("shrine"); } }
   function discover() {
     const col = player.x / T, a = L.areas.find(a => col >= a.c[0] && col < a.c[1]); if (!a || Save.data.discovered.includes(a.id)) return;
@@ -22,23 +22,24 @@
   }
   // ---------- spawning ----------
   function spawn() {
-    const mk = (type, c) => { const x = c * T, y = L.ground * T - (type === "keeper" ? CFG.boss.h : CFG.enemies[type].h);
-      return type === "keeper" ? new Boss(x, y) : type === "bound" ? new Bound(x, y) : type === "mourner" ? new Mourner(x, y) : type === "sentinel" ? new Sentinel(x, y) : new Enemy(type, x, y); };
-    enemies = L.enemies.filter(e => !(e[1] === "keeper" && won)).map(([c, t]) => mk(t, c)).concat(L.chimes.map(([c, r]) => new Chime(c * T, r * T)));
+    const mk = (type, c) => { const x = c * T, y = L.ground * T - (type === "keeper" ? CFG.boss.h : type === "bishop" ? CFG.bishop.h : CFG.enemies[type].h);
+      return type === "bishop" ? new Bishop(x, y) : type === "keeper" ? new Boss(x, y) : type === "bound" ? new Bound(x, y) : type === "mourner" ? new Mourner(x, y) : type === "sentinel" ? new Sentinel(x, y) : new Enemy(type, x, y); };
+    enemies = L.enemies.filter(e => !(e[1] === "keeper" && won) && !(e[1] === "bishop" && won2)).map(([c, t]) => mk(t, c)).concat(L.chimes.map(([c, r]) => new Chime(c * T, r * T)));
     if (world.bridge) enemies.forEach(e => { if (e.chime) e.wake(); });
-    boss = enemies.find(e => e.boss) || null; fight = false; world.gate = false; Fx.waves = [];
+    boss = enemies.find(e => e.boss && !e.bishop) || null; bishop = enemies.find(e => e.bishop) || null; fight = false; fight2 = false; world.gate = false; world.gate2 = false; Fx.waves = [];
   }
   function respawn() {   // after death: back at the last shrine; bell, bridge and map progress stay
     player = new Player(cp.x, L.ground * T - CFG.player.h); Fx.pl = player; spawn(); Fx.parts = []; Fx.ghosts = []; Fx.rings = []; Fx.fx = []; Fx.bolts = []; Fx.strikes = []; Fx.shake = 0; Fx.hitstop = 0; Fx.flash = 0; Spells.cd = {};
     cam = Math.max(0, Math.min(world.w - CFG.W, cp.x - CFG.W / 2)); Touch.icons();
   }
-  function newGame() { Save.newGame(); world.bridge = false; world.bridgeT = 0; world.shrines = new Set(); won = false; cp = { x: L.spawn[0] * T }; Fx.toast = null; respawn(); Spells.refresh(); Touch.icons(); }
-  function loadGame() { const d = Save.data; world.bridge = d.bell; world.bridgeT = 99; world.shrines = new Set(d.shrines); won = d.boss; cp = d.cp ? { x: d.cp.x } : { x: L.spawn[0] * T }; Fx.toast = null; respawn(); Spells.refresh(); Touch.icons(); }
+  function newGame() { Save.newGame(); world.bridge = false; world.bridgeT = 0; world.shrines = new Set(); won = false; won2 = false; cp = { x: L.spawn[0] * T }; Fx.toast = null; respawn(); Spells.refresh(); Touch.icons(); }
+  function loadGame() { const d = Save.data; world.bridge = d.bell; world.bridgeT = 99; world.shrines = new Set(d.shrines); won = d.boss; won2 = d.bishop; cp = d.cp ? { x: d.cp.x } : { x: L.spawn[0] * T }; Fx.toast = null; respawn(); Spells.refresh(); Touch.icons(); }
   // ---------- state ----------
   function setState(s) {
     state = s; for (const id of ["menu", "dead", "win"]) $(id).classList.toggle("hidden", s !== id); $("pbtn").classList.toggle("hidden", s !== "play");
-    Music.setMode(s === "menu" || s === "pause" || s === "win" ? "menu" : s === "dead" ? "dead" : fight ? "boss" : "game"); Touch.sync(s);
+    Music.setMode(s === "menu" || s === "pause" || s === "win" ? "menu" : s === "dead" ? "dead" : (fight || fight2) ? "boss" : "game"); Touch.sync(s);
     if (s !== "pause") UI.closeAll();
+    if (s === "play") Input.releaseAll();   // fresh input after any menu, death or load: no stuck movement or attack
   }
   function pause(open) { if (state !== "play") return; Input.touch.l = Input.touch.r = Input.touch.j = false; Input.sync(); setState("pause"); UI.openPause(open); }
   UI.init({ resume() { setState("play"); } });
@@ -78,16 +79,18 @@
   function update(dt) {
     if (Fx.hitstop > 0) { Fx.hitstop -= dt; return; }
     bellCd -= dt; if (world.bridge) world.bridgeT += dt; Spells.tick(dt);
-    player.update(dt, world, enemies);
+    player.update(dt, world, enemies); Slayer.update(dt, enemies, world);
     for (const e of enemies) { e.update(dt, world, player); if (e.sentinel && e.st === "dead" && !Save.data.sentinel) { Save.data.sentinel = true; persist(); unlocks(); } }
     enemies = enemies.filter(e => !e.gone);
-    const a = CFG.player.atk;
+    const a = player.move();
     if (player.atk >= a.from && player.atk <= a.to && bellCd <= 0 && ov(player.hitbox(), bellRect)) ring();
     for (const col of L.shrines) if (!world.shrines.has(col) && player.ground && !player.dead && Math.abs(player.x + 6 - (col * T + 15)) < 20) activate(col);
     discover();
     if (boss && !won && !fight && !player.dead && player.x > (L.gate[0] + 1) * T) { fight = true; world.gate = true; boss.wake(); toast("The Bell Keeper stirs"); Sfx.play("bell"); Fx.shake = 0.4; Music.setMode("boss"); }
-    if (boss && fight && !boss.alive() && !won) { won = true; fight = false; world.gate = false; endT = 0; toast("The bells remember"); Sfx.play("bell"); Music.setMode("game"); persist(); unlocks(); }
-    if (won) { endT += dt; if (endT > 3.5 && state === "play") setState("win"); }
+    if (boss && fight && !boss.alive() && !won) { won = true; fight = false; world.gate = false; endT = 0; toast("The bells remember. The east door opens."); Sfx.play("bell"); Music.setMode("game"); persist(); unlocks(); }
+    if (bishop && !won2 && !fight2 && !player.dead && player.x > (L.gate3[0] + 2) * T) { fight2 = true; world.gate2 = true; bishop.wake(); toast("The Corpse-Stitched Bishop rises"); Sfx.play("bell"); Fx.shake = 0.4; Music.setMode("boss"); }
+    if (bishop && fight2 && !bishop.alive() && !won2) { won2 = true; fight2 = false; world.gate2 = false; endT = 0; toast("The Chancel falls silent"); Sfx.play("bell"); Music.setMode("game"); persist(); }
+    if (won2) { endT += dt; if (endT > 3.5 && state === "play") setState("win"); }
     for (const v of Fx.waves) {   // floor waves from the boss and Bellbound: jump or dodge through them
       v.x += v.vx * dt; v.life -= dt; v.trail = (v.trail || 0) + Math.abs(v.vx * dt); if (v.trail > 14) { v.trail = 0; vfx("spike", v.x, v.y, 0.4, 0.28); }
       if (world.solid(Math.floor(v.x / T), L.ground - 1)) v.life = 0;

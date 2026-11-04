@@ -24,11 +24,15 @@ function ember(x, y, n) { for (let i = 0; i < n; i++) { if (Fx.parts.length > 16
 
 class Player {
   constructor(x, y) { Object.assign(this, { w: CFG.player.w, h: CFG.player.h, x, y, vx: 0, vy: 0, face: 1, hp: CFG.player.hp,
-    ground: false, atk: -1, inv: 0, hurt: 0, dead: false, deadT: 0, coy: 0, buf: 0, hits: null, t: 0, echo: 0, cast: -1, castSpell: null, castFired: false, combo: 0, queued: false, pushT: 0, pushV: 0, lunged: false, landT: 0, dodge: -1, dcd: 0, stepT: 0, gh: 0 }); }
-  hitbox() { const a = CFG.player.atk, r = a.reach + (this.combo ? 4 : 0); return { x: this.face > 0 ? this.x + this.w : this.x - r, y: this.y + 2, w: r, h: a.h }; }
+    ground: false, atk: -1, inv: 0, hurt: 0, dead: false, deadT: 0, coy: 0, buf: 0, hits: null, t: 0, echo: 0, cast: -1, castSpell: null, castFired: false, combo: 0, cbuf: null, fin: false, weapon: "whip", sp: -1, chg: 0, chgFull: false, pw: 0, wsw: 0, res: 0, resT: 0, resPulse: 0, queued: false, pushT: 0, pushV: 0, lunged: false, landT: 0, dodge: -1, dcd: 0, stepT: 0, gh: 0 }); }
+  wdef() { return this.weapon === "slayer" ? CFG.player.slayer : CFG.player.whip; }
+  move() { return this.wdef().moves[this.sp >= 0 ? this.sp : (this.fin ? 3 : Math.min(2, this.combo))]; }   // current weapon move
+  startSp(i, pw) { this.sp = i; this.atk = 0; this.hits = new Set(); this.lunged = false; this.queued = false; this.combo = 0; this.fin = false; this.pw = pw || 0; this.chg = 0; this.chgFull = false; }
+  switchWeapon() { this.weapon = this.weapon === "whip" ? "slayer" : "whip"; this.chg = 0; this.sp = -1; this.cbuf = null; Whip.trail = []; Slayer.trail = []; this.wsw = 0.6; Sfx.play("chime"); Fx.rings.push({ x: this.x + 6, y: this.y + 14, life: 0.4, d: 0.4, c: "#c8553d", r: 4, g: 26 }); Fx.toast = { m: this.weapon === "slayer" ? "Eclipse Slayer" : "Gilded Thorn", t: 1.3 }; }
+  hitbox() { const m = this.move(); return { x: this.face > 0 ? this.x + this.w : this.x - m.reach, y: this.y + m.hy, w: m.reach, h: m.h }; }
   damage(d, dir, knock) {
     if (this.inv > 0 || this.dead) return;
-    this.hp = Math.max(0, this.hp - d); this.inv = CFG.player.inv; this.hurt = 0.25; this.vx = dir * knock; this.vy = -140; this.atk = -1;
+    this.hp = Math.max(0, this.hp - d); this.inv = CFG.player.inv; this.hurt = 0.25; this.vx = dir * knock; this.vy = -140; this.atk = -1; this.cbuf = null; this.fin = false; this.sp = -1; this.chg = 0; this.res = Math.max(0, this.res - CFG.player.whip.loss);
     Fx.shake = 0.25; spark(this.x + 6, this.y + 12, "#c8553d", 8); Spells.refund(this); this.dodge = -1; Sfx.play("hurt");
     if (this.hp === 0) { this.dead = true; Sfx.play("die"); }
   }
@@ -38,59 +42,75 @@ class Player {
     if (this.dead) { this.deadT += dt; this.vx *= 0.9; }
     else if (this.hurt > 0) this.hurt -= dt;
     else if (Input.dodgeP && this.dodge < 0 && this.dcd <= 0 && this.hurt <= 0) { this.dodge = 0; this.dcd = c.dodge.cd; this.inv = Math.max(this.inv, c.dodge.inv); this.atk = -1; Sfx.play("dodge"); Fx.rings.push({ x: this.x + 6, y: this.y + 13, life: 0.3, d: 0.3, c: "#d9cfbd", r: 6, g: 22 }); dust(this.x + 6, this.y + 25, 6); }
+    if (this.dodge >= 0 && Input.atkP && this.weapon === "slayer" && !this.dead && this.hurt <= 0) { this.startSp(4, 0); this.dodge = -1; this.inv = Math.max(this.inv, 0.3); this.pushT = 0.16; this.pushV = this.face * c.slayer.moves[4].push; this.gh = 0; }   // dash + attack = Shadow-Step Thrust
     if (this.dodge >= 0 && !this.dead) {   // Echo Step: quick forward dash, brief invincibility, faint afterimages
       this.dodge += dt; this.vx = this.face * c.dodge.speed; this.gh -= dt;
       if (this.gh <= 0) { this.gh = 0.02; Fx.ghosts.push({ x: this.x, y: this.y, face: this.face, life: 0.42, f: Math.min(2, Math.floor(this.dodge / c.dodge.dur * 3)) }); if (this.ground) dust(this.x + 6, this.y + 25, 1); }
       if (this.dodge >= c.dodge.dur) { this.dodge = -1; this.vx = 0; }
     } else if (!this.dead && this.hurt <= 0) {
       if (this.cast >= 0) {   // casting: plant your feet; the spell leaves at the middle of the animation
-        const sp = Spells.def(this.castSpell); this.cast += dt; this.vx = 0;
+        const sp = Spells.def(this.castSpell); this.cast += dt; this.vx = 0; this.chg = 0;
         if (!this.castFired && this.cast >= sp.cast * 0.5) { this.castFired = true; Spells.fire(this.castSpell, this); }
         if (this.cast >= sp.cast) this.cast = -1;
       } else {
-      if (Input.cast2P) Spells.tryCast(1, this); else if (Input.castP) Spells.tryCast(0, this); else if (Input.bellP) Spells.tryCast("bell", this);
+      const rq = Input.cast2P ? 1 : Input.castP ? 0 : Input.bellP ? "bell" : null;   // spell input buffer: pressing during a whip lash or a jump is not lost
+      if (rq !== null) { const r = Spells.tryCast(rq, this); this.cbuf = r === "busy" ? { s: rq, t: 0.45 } : null; }
+      else if (this.cbuf) { const r = Spells.tryCast(this.cbuf.s, this, true); this.cbuf.t -= dt; if (r !== "busy" || this.cbuf.t <= 0) this.cbuf = null; }
       const dir = (Input.right ? 1 : 0) - (Input.left ? 1 : 0);
-      this.vx = dir * c.speed * (this.atk >= 0 ? c.atk.moveMul : 1);
+      this.vx = dir * c.speed * (this.atk >= 0 ? this.wdef().moveMul : this.chg > 0 ? 0.35 : 1);
       if (this.pushT > 0) { this.vx += this.pushV; this.pushT -= dt; }   // sword lunge or shield recoil
       if (dir && this.atk < 0) this.face = dir;
       if (Input.jumpP) this.buf = c.buffer;
       if (this.buf > 0 && this.coy > 0) { this.vy = -c.jump; this.buf = 0; this.coy = 0; }
       if (!Input.jump && this.vy < -120) this.vy += CFG.GRAV * 1.5 * dt;   // release jump early = short hop
-      if (Input.atkP && this.atk < 0) { this.atk = 0; this.hits = new Set(); this.lunged = false; this.combo = 0; this.queued = false; Sfx.play("swing"); }
+      if (Input.weaponP && this.atk < 0) this.switchWeapon();
+      if (this.chg > 0) {   // Arcane Edge Charge: keep holding attack after a slash; release to fire
+        if (!Input.atkHeld) { const held = this.chg; this.chg = 0; if (held >= c.slayer.chargeMin) this.startSp(3, Math.min(1, held / c.slayer.chargeFull)); }
+        else { this.chg += dt; if (!this.chgFull && this.chg >= c.slayer.chargeFull) { this.chgFull = true; Sfx.play("chime"); Fx.rings.push({ x: this.x + 6, y: this.y + 14, life: 0.35, d: 0.35, c: "#d9cfbd", r: 4, g: 26 }); } }
+      }
+      if (Input.atkP && this.atk < 0 && this.chg <= 0) { this.atk = 0; this.sp = -1; this.hits = new Set(); this.lunged = false; this.combo = 0; this.fin = false; this.queued = false; this.resT = 0; Sfx.play("swing"); }
       }
     }
-    if (this.atk >= 0 && !this.dead) {
-      const a = c.atk; this.atk += dt;
-      if (!this.lunged && this.atk >= a.from) { this.lunged = true; this.pushT = 0.12; this.pushV = this.face * 75; dust(this.x + 6 - this.face * 6, this.y + 26, 3); if (this.combo) vfx("slash", this.x + 6 + this.face * 16, this.y + 14, 0.22, 0.3, { face: this.face, flipY: 1 }); }
-      if (this.atk > a.to && Input.atkP) this.queued = true;   // press again late in the swing for the second strike
+    if (this.atk >= 0 && !this.dead) {   // Gilded Thorn: three lashes, and a Rupture Lash finisher when Resonance is high enough
+      const a = this.move(), W = c.whip, slay = this.weapon === "slayer"; this.atk += dt; this.resT = 0;
+      if (!this.lunged && this.atk >= a.from) { this.lunged = true; if (this.sp !== 4) { this.pushT = 0.12; this.pushV = this.face * a.push; } dust(this.x + 6 - this.face * 6, this.y + 26, 3); if (slay) Slayer.swing(this, a); else Whip.crack(this, a); }
+      if (this.sp === 4 && this.atk < a.to) { this.gh -= dt; if (this.gh <= 0) { this.gh = 0.025; Fx.ghosts.push({ x: this.x, y: this.y, face: this.face, life: 0.42, f: 2 }); } }   // dark afterimages along the thrust
+      if (this.atk > a.to && Input.atkP) this.queued = true;   // press again late in the lash to continue the combo
       if (this.atk >= a.from && this.atk <= a.to) {
         const box = this.hitbox();
-        for (const e of enemies) if (e.alive() && !this.hits.has(e) && ov(box, e)) { this.hits.add(e); e.damage(a.dmg, this.face, a.knock * (this.combo ? 1.4 : 1)); this.echo = Math.min(c.echoMax, this.echo + 1); } // one hit per swing
+        for (const e of enemies) if (e.alive() && !this.hits.has(e) && ov(box, e)) { this.hits.add(e); e.damage(a.dmg, this.face, a.knock); this.echo = Math.min(c.echoMax, this.echo + 1); if (slay) Slayer.hit(this, e, a); else { Whip.gain(this); Whip.hit(this, e, a); } } // one hit per lash
       }
-      if (this.atk >= a.dur) { if (this.queued) { this.queued = false; this.combo ^= 1; this.atk = 0; this.hits = new Set(); this.lunged = false; Sfx.play("swing"); } else { this.atk = -1; this.combo = 0; } }
+      if (this.atk >= a.dur) {
+        if (this.queued && !a.fin && this.sp < 0 && this.combo < 2) { this.queued = false; this.combo++; this.fin = !slay && this.combo === 2 && this.res >= W.rupture; if (this.fin) { this.res -= W.rupture; Fx.rings.push({ x: this.x + 6, y: this.y + 14, life: 0.4, d: 0.4, c: "#c8553d", r: 4, g: 30 }); } this.atk = 0; this.hits = new Set(); this.lunged = false; Sfx.play("swing"); }
+        else { const was = this.sp; this.atk = -1; this.combo = 0; this.fin = false; this.queued = false; this.sp = -1; if (slay && was < 0 && Input.atkHeld) { this.chg = 0.001; this.chgFull = false; } }
+      }
     }
+    this.wsw = Math.max(0, this.wsw - dt);
+    this.resT += dt; if (this.resT > CFG.player.whip.decayDelay) this.res = Math.max(0, this.res - CFG.player.whip.decay * dt); this.resPulse = Math.max(0, this.resPulse - dt);
     this.vy = Math.min(this.vy + CFG.GRAV * dt, 700); const was = this.ground, fv = this.vy; world.move(this, dt); this.landT = Math.max(0, this.landT - dt);
     if (!was && this.ground && fv > 150 && !this.dead) { this.landT = 0.12; Sfx.play("step"); dust(this.x + 6, this.y + 26, 7); }
     if (this.ground && Math.abs(this.vx) > 10 && this.atk < 0 && !this.dead) { this.stepT -= dt; if (this.stepT <= 0) { Sfx.play("step"); this.stepT = 0.28; dust(this.x + 6 - this.face * 4, this.y + 26, 1); } }
+    if (this.weapon === "whip") Whip.tick(dt, this); else Slayer.tick(dt, this);
   }
 }
 
 class Enemy {
   constructor(type, x, y) { const d = CFG.enemies[type]; this.d = d;
+    this.canRing = new.target === Enemy; this.rcd = 2 + Math.random() * 2; this.rw = null;
     Object.assign(this, { type, pitch: 0.9 + Math.random() * 0.25, w: d.w, h: d.h, x, y, vx: 0, vy: 0, face: -1, hp: d.hp, st: "patrol", t: 0, ground: false, did: false, flash: 0, gone: false }); }
   alive() { return this.st !== "dead"; }
-  go(s) { this.st = s; this.t = 0; this.did = false; this.fx = false; if (s === "windup") Sfx.play("warn"); try { enemyVoice(this, s); } catch (e) {} }
+  go(s) { this.st = s; this.t = 0; this.did = false; this.fx = false; if (s === "windup" || s === "ringup") Sfx.play("warn"); try { enemyVoice(this, s); } catch (e) {} }
   hitbox() { return { x: this.face > 0 ? this.x + this.w : this.x - this.d.atk.reach, y: this.y + this.h * 0.45, w: this.d.atk.reach, h: this.h * 0.55 }; }
   blocked(world) { const T = world.T, tx = Math.floor((this.x + (this.face > 0 ? this.w + 2 : -2)) / T), ty = Math.floor((this.y + this.h + 2) / T);
     return this.wall || !world.solid(tx, ty); }
   damage(n, dir, knock) {
     if (!this.alive()) return;
-    this.hp -= n; this.flash = 0.12; Fx.shake = 0.12; Fx.hitstop = 0.07; Sfx.play("hit"); hitFx(this.x + this.w / 2, this.y + this.h * 0.4, dir);
+    this.hp -= n; this.flash = 0.12; Fx.shake = 0.12; Fx.hitstop = 0.07; Sfx.play("hit"); hitFx(this.x + this.w / 2, this.y + this.h * 0.4, dir); this.rw = null;
     if (this.hp <= 0) { this.go("dead"); Sfx.play("edie"); ember(this.x + this.w / 2, this.y + 8, 14); this.vx = dir * knock * 0.5; this.vy = -100; return; }
-    this.go("hurt"); this.vx = dir * knock; this.vy = -80;
+    this.go(this.canRing && knock >= this.d.staggerKnock ? "stagger" : "hurt"); this.vx = dir * knock; this.vy = -80;   // the Rupture Lash staggers the Bell-Ringer for longer
   }
   update(dt, world, p) {
-    const d = this.d, a = d.atk; this.t += dt; this.flash = Math.max(0, this.flash - dt);
+    const d = this.d, a = d.atk; this.t += dt; this.flash = Math.max(0, this.flash - dt); this.rcd -= dt;
     const dx = (p.x + p.w / 2) - (this.x + this.w / 2), dy = p.y - this.y;
     const see = !p.dead && Math.abs(dx) < d.sight && Math.abs(dy) < 36 && world.clear(this, p);
     switch (this.st) {
@@ -98,10 +118,16 @@ class Enemy {
       case "notice": this.vx = 0; this.face = dx > 0 ? 1 : -1; if (this.t >= d.notice) this.go("chase"); break;   // bell snaps up: a readable warning before the chase
       case "chase": this.face = dx > 0 ? 1 : -1; this.vx = this.blocked(world) ? 0 : this.face * d.chase;
         if (!see && Math.abs(dx) > d.sight * 1.4) this.go("patrol");
-        else if (see && Math.abs(dx) < a.range && Math.abs(dy) < 24) this.go("windup"); break;
+        else if (see && Math.abs(dx) < a.range && Math.abs(dy) < 24) this.go("windup");
+        else if (this.canRing && see && this.rcd <= 0 && Math.abs(dx) > a.range * 1.1 && Math.abs(dx) < d.ring.range && Math.abs(dy) < 24) this.go("ringup"); break;   // too far for the chain: ring the bell instead
       case "windup": this.vx = 0; if (this.t >= a.windup) this.go("attack"); break;
+      case "ringup": this.vx = 0; this.face = dx > 0 ? 1 : -1; if (this.t >= d.ring.windup) { this.go("ring"); Sfx.play("bell"); Fx.shake = Math.max(Fx.shake, 0.12); } break;   // bell shakes, ember brightens, danger edge is shown
+      case "ring": { this.vx = 0; const k = this.t / d.ring.active, R = d.ring.radius * Math.min(1, k * 1.15); this.rw = { r: R, k }; Bellfx.pulse(this, R);
+        if (!this.did && !p.dead && p.ground) { const pd = Math.abs(dx); if (pd < R + 4 && pd > R - 14 && Math.abs(dy) < 22) { this.did = true; p.damage(d.ring.dmg, dx > 0 ? 1 : -1, d.ring.knock); } }   // damage is code, not the visual; airborne or dashing players are safe
+        if (this.t >= d.ring.active) { this.rw = null; this.rcd = d.ring.cd; this.go("recover"); } break; }
+      case "stagger": this.vx *= 0.9; if (this.t >= 0.55) this.go("chase"); break;
       case "attack": this.vx = this.face * 50;
-        if (!this.fx) { this.fx = true; const tx = this.face > 0 ? this.x + this.w + a.reach : this.x - a.reach; dust(tx, this.y + this.h, 5); spark(tx, this.y + this.h - 2, "#d9cfbd", 4); Fx.shake = Math.max(Fx.shake, 0.08); Sfx.play("chain"); }   // chain hits the floor
+        if (!this.fx) { this.fx = true; const tx = this.face > 0 ? this.x + this.w + a.reach : this.x - a.reach; dust(tx, this.y + this.h, 5); spark(tx, this.y + this.h - 2, "#d9cfbd", 4); Fx.shake = Math.max(Fx.shake, 0.08); Sfx.play("chain"); if (this.canRing) Bellfx.chainImpact(tx, this.y + this.h, this.face); }   // chain hits the floor
         if (!this.did && !p.dead && ov(this.hitbox(), p)) { this.did = true; p.damage(a.dmg, this.face, a.knock); }
         if (this.t >= a.active) this.go("recover"); break;
       case "recover": this.vx = 0; if (this.t >= a.recover) this.go("chase"); break;

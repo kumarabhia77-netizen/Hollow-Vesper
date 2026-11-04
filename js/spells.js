@@ -29,13 +29,14 @@ const Spells = {
   equip(id, slot) { const S = Save.data.spells; if (!this.has(id) || !this.def(id).impl || slot < 0 || slot > 1) return false; const o = S.slots.indexOf(id); if (o >= 0) S.slots[o] = S.slots[slot]; S.slots[slot] = id; Save.save(); return true; },
   unequip(slot) { Save.data.spells.slots[slot] = null; Save.save(); },
   tick(dt) { for (const k in this.cd) if (this.cd[k] > 0) this.cd[k] = Math.max(0, this.cd[k] - dt); },
-  tryCast(slot, p) {   // 1 unlocked? 2 enough echo? 3 cooldown? 4 allowed right now? then start the casting animation
+  tryCast(slot, p, quiet) {   // quiet = a buffered retry: no toast or sound spam. Returns true (started), "busy" (would work in a moment) or false   // 1 unlocked? 2 enough echo? 3 cooldown? 4 allowed right now? then start the casting animation
     const id = slot === "bell" ? "bell" : Save.data.spells.slots[slot], s = id && this.def(id);
-    if (!s) { Fx.toast = { m: "No spell equipped in that slot", t: 1.6 }; return false; }
+    if (!s) { if (!quiet) Fx.toast = { m: "No spell equipped in that slot", t: 1.6 }; return false; }
     if (!s.impl || !this.has(id)) return false;
-    if (p.atk >= 0 || !p.ground || p.dodge >= 0 || p.dead || p.hurt > 0 || p.cast >= 0) return false;
+    if (p.dead || p.hurt > 0) return false;
     if ((this.cd[id] || 0) > 0) return false;
-    if (p.echo < s.cost) { Fx.noEcho = 0.5; Sfx.play("clink"); return false; }
+    if (p.echo < s.cost) { if (!quiet) { Fx.noEcho = 0.5; Sfx.play("clink"); } return false; }
+    if (p.atk >= 0 || !p.ground || p.dodge >= 0 || p.cast >= 0) return "busy";   // attacking or in the air: the press is remembered for a moment and fires as soon as it can
     p.cast = 0; p.castSpell = id; p.castFired = false; p.echo -= s.cost; this.cd[id] = s.cd; Sfx.play("cast"); return true;
   },
   refund(p) { if (p.cast >= 0 && !p.castFired && p.castSpell) { const s = this.def(p.castSpell); p.echo = Math.min(CFG.player.echoMax, p.echo + s.cost); this.cd[p.castSpell] = 0; } p.cast = -1; },   // interrupted before the spell left: give the cost back

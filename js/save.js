@@ -4,7 +4,7 @@
 const Save = {
   KEY: "hollow_vesper_save_v1", data: null,
   defaults() {
-    return { v: 1, started: false, discovered: ["gate"], shrines: [], bell: false, sentinel: false, boss: false, cp: null, mapSeen: false,
+    return { v: 1, started: false, discovered: ["gate"], shrines: [], bell: false, sentinel: false, boss: false, bishop: false, cp: null, mapSeen: false,
       spells: { unlocked: ["fireball"], slots: ["fireball", null] },
       settings: { music: 0.55, sfx: 0.9, shake: true, touch: "auto", vibrate: true, lite: null },
       ctrl: null, bindings: {} };
@@ -14,7 +14,7 @@ const Save = {
     const o = this.defaults(); if (d && typeof d === "object") {
       const strs = a => Array.isArray(a) ? a.filter(x => typeof x === "string").slice(0, 60) : null, num = (v, a, b, df) => typeof v === "number" && v >= a && v <= b ? v : df;
       if (strs(d.discovered)) o.discovered = strs(d.discovered); if (strs(d.shrines)) o.shrines = strs(d.shrines).map(Number).filter(n => n >= 0 && n < 400);
-      for (const k of ["started", "bell", "sentinel", "boss", "mapSeen"]) if (typeof d[k] === "boolean") o[k] = d[k];
+      for (const k of ["started", "bell", "sentinel", "boss", "bishop", "mapSeen"]) if (typeof d[k] === "boolean") o[k] = d[k];
       if (d.cp && typeof d.cp.x === "number" && d.cp.x >= 0 && d.cp.x < 6000) o.cp = { x: d.cp.x };
       if (d.spells && strs(d.spells.unlocked)) o.spells.unlocked = strs(d.spells.unlocked);
       if (d.spells && Array.isArray(d.spells.slots)) o.spells.slots = [0, 1].map(i => typeof d.spells.slots[i] === "string" ? d.spells.slots[i] : null);
