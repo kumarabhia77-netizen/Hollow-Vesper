@@ -2,7 +2,7 @@
 (window.HV_V = window.HV_V || {}).main = 10;
 // Game flow: menu -> play -> pause (menus) / dead / win. Fixed 60 updates per second keeps physics steady.
 // Everything that can go wrong is caught, so one problem never freezes the game.
-(function () {
+function HV_boot() {
   const T = CFG.T, L = CFG.level, world = new World(L), shown = {};
   let player, enemies = [], boss = null, cam = 0, state = "menu", acc = 0, last = 0, time = 0, cp = { x: L.spawn[0] * T }, fight = false, won = false, bishop = null, fight2 = false, won2 = false, endT = 0, bellCd = 0, loaded = false;
   const bellRect = { x: L.bell * T + 2, y: L.ground * T - 36, w: 24, h: 36 };
@@ -22,11 +22,11 @@
   }
   // ---------- spawning ----------
   function spawn() {
-    const mk = (type, c) => { const x = c * T, y = L.ground * T - (type === "keeper" ? CFG.boss.h : type === "bishop" ? CFG.bishop.h : CFG.enemies[type].h);
-      return type === "bishop" ? new Bishop(x, y) : type === "keeper" ? new Boss(x, y) : type === "bound" ? new Bound(x, y) : type === "mourner" ? new Mourner(x, y) : type === "sentinel" ? new Sentinel(x, y) : new Enemy(type, x, y); };
+    const mk = (type, c) => { const x = c * T, y = L.ground * T - (CFG.mon[type] ? CFG.mon[type].h : type === "keeper" ? CFG.boss.h : type === "bishop" ? CFG.bishop.h : CFG.enemies[type].h);
+      return CFG.mon[type] ? Monsters.make(type, x, y) : type === "bishop" ? new Bishop(x, y) : type === "keeper" ? new Boss(x, y) : type === "bound" ? new Bound(x, y) : type === "mourner" ? new Mourner(x, y) : type === "sentinel" ? new Sentinel(x, y) : new Enemy(type, x, y); };
     enemies = L.enemies.filter(e => !(e[1] === "keeper" && won) && !(e[1] === "bishop" && won2)).map(([c, t]) => mk(t, c)).concat(L.chimes.map(([c, r]) => new Chime(c * T, r * T)));
     if (world.bridge) enemies.forEach(e => { if (e.chime) e.wake(); });
-    boss = enemies.find(e => e.boss && !e.bishop) || null; bishop = enemies.find(e => e.bishop) || null; fight = false; fight2 = false; world.gate = false; world.gate2 = false; Fx.waves = [];
+    boss = enemies.find(e => e.boss && !e.bishop) || null; bishop = enemies.find(e => e.bishop) || null; fight = false; fight2 = false; world.gate = false; world.gate2 = false; Fx.waves = []; Monsters.clear();
   }
   function respawn() {   // after death: back at the last shrine; bell, bridge and map progress stay
     player = new Player(cp.x, L.ground * T - CFG.player.h); Fx.pl = player; spawn(); Fx.parts = []; Fx.ghosts = []; Fx.rings = []; Fx.fx = []; Fx.bolts = []; Fx.strikes = []; Fx.shake = 0; Fx.hitstop = 0; Fx.flash = 0; Spells.cd = {};
@@ -79,7 +79,7 @@
   function update(dt) {
     if (Fx.hitstop > 0) { Fx.hitstop -= dt; return; }
     bellCd -= dt; if (world.bridge) world.bridgeT += dt; Spells.tick(dt);
-    player.update(dt, world, enemies); Slayer.update(dt, enemies, world);
+    player.update(dt, world, enemies); Slayer.update(dt, enemies, world); Monsters.update(dt, player, world); Spellfx.tick(dt, player);
     for (const e of enemies) { e.update(dt, world, player); if (e.sentinel && e.st === "dead" && !Save.data.sentinel) { Save.data.sentinel = true; persist(); unlocks(); } }
     enemies = enemies.filter(e => !e.gone);
     const a = player.move();
@@ -161,4 +161,16 @@
   window.Game = { get player() { return player; }, get enemies() { return enemies; }, get state() { return state; }, get cam() { return cam; }, world, get boss() { return boss; }, get cp() { return cp; }, get won() { return won; }, pause, persist, loadGame, newGame };
   $("start").disabled = true; $("cont").disabled = true; $("start").textContent = "Loading...";
   loadGame(); if (!Save.data.started) newGame(); setState("menu"); requestAnimationFrame(t => { last = t; loop(t); });
+}
+// Self-repair loader: if the page (index.html) is an older copy that does not list the newer script files, load them here, in order, before the game starts.
+// If a file really is missing from the site, say exactly which one instead of a vague error.
+(function () {
+  const want = [["whip", () => typeof Whip !== "undefined" && typeof Bellfx !== "undefined"], ["slayer", () => typeof Slayer !== "undefined"], ["bishop", () => typeof Bishop !== "undefined"], ["monsters", () => typeof Monsters !== "undefined"], ["spellfx", () => typeof Spellfx !== "undefined"]],
+    extra = [["menufx", () => !(window.HV_V && window.HV_V.menufx)], ["intro", () => !(window.HV_V && window.HV_V.intro)]], todo = want.filter(w => !w[1]()).map(w => w[0]).concat(extra.filter(w => w[1]()).map(w => w[0])), missing = [];
+  if (!todo.length) return HV_boot();
+  const next = () => { const n = todo.shift(); if (!n) { const hard = missing.filter(m => want.some(w => w[0] === m));
+      if (hard.length) { const e = document.getElementById("err"); if (e) { e.textContent = "Please upload these files to GitHub (same folder as the others): " + hard.map(m => "js/" + m + ".js").join(", ") + ". Also upload the newest index.html. Then reload the page."; e.classList.remove("hidden"); } const b = document.getElementById("start"); if (b) { b.disabled = true; b.textContent = "Files missing"; } return; }
+      return HV_boot(); }
+    const sc = document.createElement("script"); sc.src = "js/" + n + ".js?v=" + Date.now(); sc.onload = () => next(); sc.onerror = () => { missing.push(n); next(); }; document.head.appendChild(sc); };
+  next();
 })();

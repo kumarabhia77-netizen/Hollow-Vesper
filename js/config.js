@@ -40,7 +40,12 @@ const CFG = {
     cols: 108, rows: 17, ground: 15, spawn: [3, 15], pit: [46, 14], bridge: [46, 14], gate: [69, 9, 6], gate2: [80, 9, 6], gate3: [84, 9, 6], shrines: [5, 63, 82], bell: 42,
     platforms: [[12, 11, 5], [19, 9, 4], [30, 12, 6], [36, 10, 4]],
     props: [["shrine",5],["tree",1],["torch",9],["fence",11],["statue",14],["banner",17],["barrel",21],["crate",23],["lantern",27],["torch",33],["cart",35],["bell",42],["lantern",50],["banner2",55],["brazier",61],["shrine",63],["torch",66],["rubble",72],["statue2",74],["torch",77],["torch",81],["shrine",82],["brazier",86],["statue2",90],["banner2",93],["torch",97],["rubble",100],["statue",104],["torch",106]],
-    enemies: [[20, "husk"], [27, "husk"], [33, "bound"], [39, "sentinel"], [64, "mourner"], [67, "husk"], [76, "keeper"], [100, "bishop"]], chimes: [[50, 8], [53, 7], [56, 8]] },
+    enemies: [[20, "husk"], [24, "porter"], [29, "archivist"], [33, "bound"], [35, "colossus"], [39, "sentinel"], [62, "reaper"], [64, "mourner"], [67, "husk"], [76, "keeper"], [100, "bishop"]], chimes: [[50, 8], [53, 7], [56, 8]] },
+  mon: {   // new monsters (js/monsters.js)
+    colossus: { w: 28, h: 46, hp: 8, speed: 16, sight: 130, reach: 40 },
+    reaper: { w: 14, h: 28, hp: 4, speed: 38, sight: 150, reach: 40 },
+    archivist: { w: 14, h: 30, hp: 3, speed: 16, sight: 170, keep: 90 },
+    porter: { w: 18, h: 30, hp: 5, speed: 18, sight: 150, keep: 80 } },
   bishop: { w: 26, h: 56, hp: 18, speed: 24, keep: 70, pulseH: 30, pulseSpeed: 150, atk: { reach: 56, dmg: 1, knock: 180 } },
   boss: { w: 24, h: 44, hp: 14, range: 58, speed: 34, windup: 0.85, active: 0.22, recover: 1.0, atk: { reach: 70, dmg: 1, knock: 170 } },
   debug: /[?&]debug/.test(location.search)

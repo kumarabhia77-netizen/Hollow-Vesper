@@ -89,9 +89,9 @@ const Render = {
     const lights = []; this.chancel(cm, t); this.props(cm, t, lights, w); this.world(w, cm, t);
     for (const e of es) if (e.alive() && !e.chime) this.shade(e.x + e.w / 2 - cm, e.y + e.h, e.boss ? 16 : 9);
     if (p.ground && !p.dead) this.shade(p.x + p.w / 2 - cm, p.y + p.h, 8);
-    for (const e of es) this.enemy(e, cm);
+    for (const e of es) this.enemy(e, cm); Monsters.draw(this.cx, cm);
     for (const v of Fx.waves) { cx.globalAlpha = Math.min(1, v.life); cx.fillStyle = "#d9cfbd"; cx.beginPath(); cx.ellipse(v.x - cm, v.y - 4, 7, 5, 0, 0, 6.283); cx.fill(); cx.fillStyle = "#c8553d"; cx.beginPath(); cx.ellipse(v.x - cm, v.y - 4, 4, 3, 0, 0, 6.283); cx.fill(); cx.globalAlpha = 1; }
-    this.ghosts(cm); this.player(p, cm); if (p.weapon === "whip") Whip.draw(cx, cm, p); Slayer.draw(cx, cm, p); this.drawFx(cm);
+    this.ghosts(cm); this.player(p, cm); if (p.weapon === "whip") Whip.draw(cx, cm, p); Slayer.draw(cx, cm, p); this.drawFx(cm); Spellfx.draw(this.cx, cm, p);
     for (const q of Fx.parts) { cx.globalAlpha = Math.min(1, q.life * 3); cx.fillStyle = q.col; cx.fillRect(Math.round(q.x - cm), Math.round(q.y), q.s || 2, q.s || 2); } cx.globalAlpha = 1;
     cx.restore();
     const f = cx.createLinearGradient(0, 90, 0, H); f.addColorStop(0, "rgba(91,85,96,0)"); f.addColorStop(1, "rgba(91,85,96,.3)"); cx.fillStyle = f; cx.fillRect(0, 90, W, H - 90);
@@ -176,7 +176,8 @@ const Render = {
     cx.drawImage(A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, f[2] * s, h); cx.restore();
   },
   enemy(e, cm) {
-    if (e.bishop) return Bishop.draw(this.cx, e, cm);   // pick the animation and frame that match the enemy's state
+    if (e.bishop) return Bishop.draw(this.cx, e, cm);
+    if (e.mon) return Monsters.drawEnemy(this.cx, e, cm);   // pick the animation and frame that match the enemy's state
     if (e.chime) return this.chime(e, cm); if (e.sentinel) return this.sentinel(e, cm);
     const cx = this.cx, A = this.img[e.atlas || "husk"], H = ANIMS.husk, d = e.d, wu = d.atk.windup || d.windup, rc = d.atk.recover || d.recover; let an = "walk", pr = -1;   // pr: progress 0..1 through a one-shot animation
     switch (e.st) {
