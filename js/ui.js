@@ -63,6 +63,7 @@ const ControlsView = {
 };
 
 // ---------------- Magic library ----------------
+const SPELL_COL = { fireball: "#ff7a3d", wind: "#4fe0c8", lightning: "#ffe14d", bell: "#f0c060", tornado: "#b0a0ff", shield: "#5aa8ff", echostep: "#ff5fb0", lance: "#ff4d5e", rupture: "#c88a4a", nova: "#c060ff" };   // one vibrant colour per spell
 const MagicView = {
   cat: "all", page: 0, sel: null, PER: 6,
   init() {
@@ -77,7 +78,8 @@ const MagicView = {
     const l = this.list(), pages = Math.max(1, Math.ceil(l.length / this.PER)); this.page = Math.max(0, Math.min(pages - 1, this.page)); const slots = Save.data.spells.slots;
     $("mtabs").innerHTML = Spells.CATS.map(([k, n]) => '<button data-c="' + k + '"' + (k === this.cat ? ' class="act"' : "") + ">" + n + "</button>").join("");
     $("mgrid").innerHTML = l.slice(this.page * this.PER, this.page * this.PER + this.PER).map(s => { const st = Spells.status(s.id), q = slots.indexOf(s.id);
-      return '<button class="mt ' + st + (s.id === this.sel ? " sel" : "") + '" data-id="' + s.id + '"><img src="' + Spells.icon(s.id).src + '" alt=""><span class="nm">' + s.name + '</span><span class="ct">Cost ' + s.cost + "</span><span class=\"stt\">" +
+      const sc = SPELL_COL[s.id] || SPELL_COL[s.cat] || "#c8a05a";
+      return '<button class="mt ' + st + (s.id === this.sel ? " sel" : "") + '" data-id="' + s.id + '" style="--sc:' + sc + '"><img src="' + Spells.icon(s.id).src + '" alt=""><span class="nm">' + s.name + '</span><span class="ct">Cost ' + s.cost + "</span><span class=\"stt\">" +
         (q >= 0 ? "Equipped " + (q + 1) : st === "planned" ? "Planned" : st === "locked" ? "Locked" : st === "cooldown" ? "Recharging" : "Ready") + "</span></button>"; }).join("");
     $("mpage").textContent = "Page " + (this.page + 1) + " / " + pages; $("mprev").disabled = this.page <= 0; $("mnext").disabled = this.page >= pages - 1;
     const pl = Fx.pl; $("mecho").textContent = "Echo " + (pl ? pl.echo : 0) + " / " + CFG.player.echoMax;
@@ -90,6 +92,7 @@ const MagicView = {
 };
 
 // ---------------- World map ----------------
+const AREA_COL = { gate: [232, 190, 70], yard: [240, 130, 60], tower: [168, 116, 230], span: [60, 190, 225], rise: [100, 205, 110], arena: [235, 70, 85], chancel: [225, 85, 175] };   // each map section has its own colour
 const MapView = {
   cv: null, cx: null, t: { x: 0, y: 0, s: 1 }, ptrs: new Map(), pd: 0, timer: null, region: 0, U: 12, ready: false,
   regions() { return CFG.level.regions; },
@@ -127,14 +130,16 @@ const MapView = {
     const areas = L.areas.filter(a => R.areas.includes(a.id)), idx = a => L.areas.indexOf(a);
     for (const a of areas) { const seen = D.includes(a.id), x0 = a.c[0] * U, x1 = a.c[1] * U, nb = [L.areas[idx(a) - 1], L.areas[idx(a) + 1]].some(n => n && D.includes(n.id));
       if (!seen) { if (!nb) continue; cx.setLineDash([6, 5]); cx.strokeStyle = "#5b5560"; cx.lineWidth = 2; cx.strokeRect(x0 + 3, -130, x1 - x0 - 6, 170); cx.setLineDash([]); cx.fillStyle = "#5b5560"; cx.font = "bold 34px Georgia,serif"; cx.textAlign = "center"; cx.fillText("?", (x0 + x1) / 2, -40); continue; }
-      const p = cx.createLinearGradient(0, -130, 0, 40); p.addColorStop(0, "rgba(217,207,189,.22)"); p.addColorStop(1, "rgba(217,207,189,.07)"); cx.fillStyle = p; cx.fillRect(x0 + 3, -130, x1 - x0 - 6, 170);
-      cx.strokeStyle = a.id === curId ? "#c8553d" : "#8d8374"; cx.lineWidth = a.id === curId ? 3 : 2; cx.strokeRect(x0 + 3, -130, x1 - x0 - 6, 170);
-      cx.fillStyle = "#d9cfbd"; cx.font = "13px Georgia,serif"; cx.textAlign = "left"; cx.fillText(a.name, x0 + 10, -112);
+      const ac = AREA_COL[a.id] || [217, 207, 189], rgb = ac.join(","), p = cx.createLinearGradient(0, -130, 0, 40); p.addColorStop(0, `rgba(${rgb},.45)`); p.addColorStop(1, `rgba(${rgb},.12)`); cx.fillStyle = p; cx.fillRect(x0 + 3, -130, x1 - x0 - 6, 170);
+      if (a.id === curId) { cx.save(); cx.shadowColor = `rgb(${rgb})`; cx.shadowBlur = 16 + 6 * Math.sin(time * 3); cx.strokeStyle = `rgb(${rgb})`; cx.lineWidth = 3; cx.strokeRect(x0 + 3, -130, x1 - x0 - 6, 170); cx.restore(); }
+      cx.fillStyle = `rgb(${rgb})`; cx.fillRect(x0 + 3, -130, x1 - x0 - 6, 5);
+      cx.strokeStyle = a.id === curId ? "#fff3d0" : `rgb(${rgb})`; cx.lineWidth = a.id === curId ? 3 : 2; cx.strokeRect(x0 + 3, -130, x1 - x0 - 6, 170);
+      cx.fillStyle = `rgb(${Math.min(255, ac[0] + 40)},${Math.min(255, ac[1] + 40)},${Math.min(255, ac[2] + 40)})`; cx.font = "bold 13px Georgia,serif"; cx.textAlign = "left"; cx.fillText(a.name, x0 + 10, -112);
       // ground line from the real level data (a gap where the pit is)
-      cx.strokeStyle = "#d9cfbd"; cx.lineWidth = 2.5; cx.beginPath(); const pit0 = L.pit[0] * U, pit1 = (L.pit[0] + L.pit[1]) * U;
+      cx.strokeStyle = `rgb(${rgb})`; cx.lineWidth = 3; cx.beginPath(); const pit0 = L.pit[0] * U, pit1 = (L.pit[0] + L.pit[1]) * U;
       if (a.type === "chasm") { cx.moveTo(x0 + 3, 0); cx.lineTo(Math.max(x0 + 3, pit0), 0); cx.moveTo(Math.min(x1 - 3, pit1), 0); cx.lineTo(x1 - 3, 0); } else { cx.moveTo(x0 + 3, 0); cx.lineTo(x1 - 3, 0); } cx.stroke();
       cx.fillStyle = "rgba(12,11,17,.5)"; if (a.type !== "chasm") cx.fillRect(x0 + 3, 1, x1 - x0 - 6, 38);
-      for (const [px, py, pw] of L.platforms) if (px * U >= x0 && px * U < x1) { cx.fillStyle = "#8d8374"; cx.fillRect(px * U, (py - L.ground) * 7, pw * U, 4); } }
+      for (const [px, py, pw] of L.platforms) if (px * U >= x0 && px * U < x1) { cx.fillStyle = `rgb(${rgb})`; cx.fillRect(px * U, (py - L.ground) * 7, pw * U, 4); } }
     // the hidden bridge: dashed question marks until the bell is rung, then a drawn bridge
     const bx = L.bridge[0] * U, bw = L.bridge[1] * U; if (D.includes("span")) { if (world.bridge) { cx.strokeStyle = "#d9cfbd"; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(bx, 0); cx.lineTo(bx + bw, 0); cx.stroke(); } else { cx.setLineDash([4, 6]); cx.strokeStyle = "#c8553d"; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(bx, 0); cx.lineTo(bx + bw, 0); cx.stroke(); cx.setLineDash([]); cx.fillStyle = "#c8553d"; cx.font = "bold 22px Georgia,serif"; cx.textAlign = "center"; cx.fillText("?", bx + bw / 2, -10); } }
     const mark = (shape, x, y, col, filled) => { cx.fillStyle = col; cx.strokeStyle = col; cx.lineWidth = 2.5; cx.beginPath();

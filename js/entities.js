@@ -26,6 +26,10 @@ class Player {
   constructor(x, y) { Object.assign(this, { w: CFG.player.w, h: CFG.player.h, x, y, vx: 0, vy: 0, face: 1, hp: CFG.player.hp,
     ground: false, atk: -1, inv: 0, hurt: 0, dead: false, deadT: 0, coy: 0, buf: 0, hits: null, t: 0, echo: 0, cast: -1, castSpell: null, castFired: false, combo: 0, cbuf: null, fin: false, weapon: "whip", sp: -1, chg: 0, chgFull: false, pw: 0, wsw: 0, res: 0, resT: 0, resPulse: 0, queued: false, pushT: 0, pushV: 0, lunged: false, landT: 0, dodge: -1, dcd: 0, stepT: 0, gh: 0 }); }
   wdef() { return this.weapon === "slayer" ? CFG.player.slayer : CFG.player.whip; }
+  rapture(enemies) {   // Rapture Lash: consumes all Resonance, hits and pulls nearby enemies toward the Warden (armoured ones are hit but not pulled)
+    const W = CFG.player.whip, mv = W.moves[3], mid = this.x + this.w / 2;
+    for (const e of enemies) { if (!e.alive() || this.hits.has(e) || e.st === "sleep") continue; const ex = e.x + e.w / 2; if (Math.abs(ex - mid) > W.pull.radius || Math.abs(e.y - this.y) > 56) continue; this.hits.add(e); const armoured = e.boss || e.mon === "colossus"; e.damage(mv.dmg * 0.7, armoured ? this.face : (mid > ex ? 1 : -1), 150); Whip.hit(this, e, mv); }
+  }
   move() { return this.wdef().moves[this.sp >= 0 ? this.sp : (this.fin ? 3 : Math.min(2, this.combo))]; }   // current weapon move
   startSp(i, pw) { this.sp = i; this.atk = 0; this.hits = new Set(); this.lunged = false; this.queued = false; this.combo = 0; this.fin = false; this.pw = pw || 0; this.chg = 0; this.chgFull = false; }
   switchWeapon() { this.weapon = this.weapon === "whip" ? "slayer" : "whip"; this.chg = 0; this.sp = -1; this.cbuf = null; Whip.trail = []; Slayer.trail = []; this.wsw = 0.6; Sfx.play("chime"); Fx.rings.push({ x: this.x + 6, y: this.y + 14, life: 0.4, d: 0.4, c: "#c8553d", r: 4, g: 26 }); Fx.toast = { m: this.weapon === "slayer" ? "Eclipse Slayer" : "Gilded Thorn", t: 1.3 }; }
@@ -45,7 +49,7 @@ class Player {
     if (this.dodge >= 0 && Input.atkP && this.weapon === "slayer" && !this.dead && this.hurt <= 0) { this.startSp(4, 0); this.dodge = -1; this.inv = Math.max(this.inv, 0.3); this.pushT = 0.16; this.pushV = this.face * c.slayer.moves[4].push; this.gh = 0; }   // dash + attack = Shadow-Step Thrust
     if (this.dodge >= 0 && !this.dead) {   // Echo Step: quick forward dash, brief invincibility, faint afterimages
       this.dodge += dt; this.vx = this.face * c.dodge.speed; this.gh -= dt;
-      if (this.gh <= 0) { this.gh = 0.02; Fx.ghosts.push({ x: this.x, y: this.y, face: this.face, life: 0.42, f: Math.min(2, Math.floor(this.dodge / c.dodge.dur * 3)) }); if (this.ground) dust(this.x + 6, this.y + 25, 1); }
+      if (this.gh <= 0) { this.gh = 0.025; Fx.ghosts.push({ x: this.x, y: this.y, face: this.face, life: 0.55, f: Math.min(2, Math.floor(this.dodge / c.dodge.dur * 3)) }); if (this.ground) dust(this.x + 6, this.y + 25, 1); }
       if (this.dodge >= c.dodge.dur) { this.dodge = -1; this.vx = 0; }
     } else if (!this.dead && this.hurt <= 0) {
       if (this.cast >= 0) {   // casting: plant your feet; the spell leaves at the middle of the animation
@@ -64,25 +68,26 @@ class Player {
       if (this.buf > 0 && this.coy > 0) { this.vy = -c.jump; this.buf = 0; this.coy = 0; }
       if (!Input.jump && this.vy < -120) this.vy += CFG.GRAV * 1.5 * dt;   // release jump early = short hop
       if (Input.weaponP && this.atk < 0) this.switchWeapon();
-      if (this.chg > 0) {   // Arcane Edge Charge: keep holding attack after a slash; release to fire
-        if (!Input.atkHeld) { const held = this.chg; this.chg = 0; if (held >= c.slayer.chargeMin) this.startSp(3, Math.min(1, held / c.slayer.chargeFull)); }
-        else { this.chg += dt; if (!this.chgFull && this.chg >= c.slayer.chargeFull) { this.chgFull = true; Sfx.play("chime"); Fx.rings.push({ x: this.x + 6, y: this.y + 14, life: 0.35, d: 0.35, c: "#d9cfbd", r: 4, g: 26 }); } }
+      const CH = this.weapon === "slayer" ? c.slayer : c.whip.heavy;   // charge settings: Arcane Edge (greatsword) or Heavy Lash (whip)
+      if (this.chg > 0) {   // keep holding attack after a slash; release to fire
+        if (!Input.atkHeld) { const held = this.chg; this.chg = 0; if (held >= CH.chargeMin) this.startSp(this.weapon === "slayer" ? 3 : 4, Math.min(1, held / CH.chargeFull)); }
+        else { this.chg += dt; if (!this.chgFull && this.chg >= CH.chargeFull) { this.chgFull = true; Sfx.play("chime"); Fx.rings.push({ x: this.x + 6, y: this.y + 14, life: 0.35, d: 0.35, c: "#d9cfbd", r: 4, g: 26 }); } }
       }
       if (Input.atkP && this.atk < 0 && this.chg <= 0) { this.atk = 0; this.sp = -1; this.hits = new Set(); this.lunged = false; this.combo = 0; this.fin = false; this.queued = false; this.resT = 0; Sfx.play("swing"); }
       }
     }
     if (this.atk >= 0 && !this.dead) {   // Gilded Thorn: three lashes, and a Rupture Lash finisher when Resonance is high enough
       const a = this.move(), W = c.whip, slay = this.weapon === "slayer"; this.atk += dt; this.resT = 0;
-      if (!this.lunged && this.atk >= a.from) { this.lunged = true; if (this.sp !== 4) { this.pushT = 0.12; this.pushV = this.face * a.push; } dust(this.x + 6 - this.face * 6, this.y + 26, 3); if (slay) Slayer.swing(this, a); else Whip.crack(this, a); }
-      if (this.sp === 4 && this.atk < a.to) { this.gh -= dt; if (this.gh <= 0) { this.gh = 0.025; Fx.ghosts.push({ x: this.x, y: this.y, face: this.face, life: 0.42, f: 2 }); } }   // dark afterimages along the thrust
+      if (!this.lunged && this.atk >= a.from) { this.lunged = true; if (!(slay && this.sp === 4)) { this.pushT = 0.12; this.pushV = this.face * a.push; } dust(this.x + 6 - this.face * 6, this.y + 26, 3); if (slay) Slayer.swing(this, a); else { Whip.crack(this, a); if (a.fin) this.rapture(enemies); } }
+      if (slay && this.sp === 4 && this.atk < a.to) { this.gh -= dt; if (this.gh <= 0) { this.gh = 0.025; Fx.ghosts.push({ x: this.x, y: this.y, face: this.face, life: 0.42, f: 2 }); } }   // dark afterimages along the thrust
       if (this.atk > a.to && Input.atkP) this.queued = true;   // press again late in the lash to continue the combo
       if (this.atk >= a.from && this.atk <= a.to) {
         const box = this.hitbox();
         for (const e of enemies) if (e.alive() && !this.hits.has(e) && ov(box, e)) { this.hits.add(e); e.damage(a.dmg, this.face, a.knock); this.echo = Math.min(c.echoMax, this.echo + 1); if (slay) Slayer.hit(this, e, a); else { Whip.gain(this); Whip.hit(this, e, a); } } // one hit per lash
       }
       if (this.atk >= a.dur) {
-        if (this.queued && !a.fin && this.sp < 0 && this.combo < 2) { this.queued = false; this.combo++; this.fin = !slay && this.combo === 2 && this.res >= W.rupture; if (this.fin) { this.res -= W.rupture; Fx.rings.push({ x: this.x + 6, y: this.y + 14, life: 0.4, d: 0.4, c: "#c8553d", r: 4, g: 30 }); } this.atk = 0; this.hits = new Set(); this.lunged = false; Sfx.play("swing"); }
-        else { const was = this.sp; this.atk = -1; this.combo = 0; this.fin = false; this.queued = false; this.sp = -1; if (slay && was < 0 && Input.atkHeld) { this.chg = 0.001; this.chgFull = false; } }
+        if (this.queued && !a.fin && this.sp < 0 && this.combo < 2) { this.queued = false; this.combo++; this.fin = !slay && this.combo === 2 && this.res >= W.rupture; if (this.fin) { this.res = 0; Fx.rings.push({ x: this.x + 6, y: this.y + 14, life: 0.4, d: 0.4, c: "#c8553d", r: 4, g: 30 }); } this.atk = 0; this.hits = new Set(); this.lunged = false; Sfx.play("swing"); }
+        else { const was = this.sp; this.atk = -1; this.combo = 0; this.fin = false; this.queued = false; this.sp = -1; if (was < 0 && Input.atkHeld) { this.chg = 0.001; this.chgFull = false; } }
       }
     }
     this.wsw = Math.max(0, this.wsw - dt);

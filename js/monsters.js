@@ -10,7 +10,7 @@
 const Monsters = {
   fires: [], shards: [], lanterns: [],
   clear() { this.fires = []; this.shards = []; this.lanterns = []; },
-  make(type, x, y) { return type === "colossus" ? new Colossus(x, y) : type === "reaper" ? new Reaper(x, y) : type === "archivist" ? new Archivist(x, y) : new Porter(x, y); },
+  make(type, x, y) { return type === "knight" ? new CursedKnight(x, y) : type === "colossus" ? new Colossus(x, y) : type === "reaper" ? new Reaper(x, y) : type === "archivist" ? new Archivist(x, y) : new Porter(x, y); },
   update(dt, p, world) {   // projectiles and fire patches live here so they keep working after their owner dies
     const T = CFG.T, gy = CFG.level.ground * T;
     for (const s of this.shards) { s.t += dt; s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 30 * dt; if (!s.hit && !p.dead && ov({ x: s.x - 4, y: s.y - 2, w: 8, h: 4 }, p)) { s.hit = true; s.t = 9; p.damage(1, Math.sign(s.vx), 120); }
@@ -35,7 +35,7 @@ const Monsters = {
   },
   drawEnemy(cx, e, cm) {
     const ox = Math.round(e.x + e.w / 2 - cm); if (ox < -90 || ox > CFG.W + 90) return;
-    const fn = { colossus: Colossus.draw, reaper: Reaper.draw, archivist: Archivist.draw, porter: Porter.draw }[e.mon]; fn(cx, e, ox, Math.round(e.y + e.h));
+    const fn = { colossus: Colossus.draw, reaper: Reaper.draw, archivist: Archivist.draw, porter: Porter.draw, knight: CursedKnight.draw }[e.mon]; fn(cx, e, ox, Math.round(e.y + e.h));
   }
 };
 

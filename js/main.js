@@ -165,7 +165,7 @@ function HV_boot() {
 // Self-repair loader: if the page (index.html) is an older copy that does not list the newer script files, load them here, in order, before the game starts.
 // If a file really is missing from the site, say exactly which one instead of a vague error.
 (function () {
-  const want = [["whip", () => typeof Whip !== "undefined" && typeof Bellfx !== "undefined"], ["slayer", () => typeof Slayer !== "undefined"], ["bishop", () => typeof Bishop !== "undefined"], ["monsters", () => typeof Monsters !== "undefined"], ["spellfx", () => typeof Spellfx !== "undefined"]],
+  const want = [["whip", () => typeof Whip !== "undefined" && typeof Bellfx !== "undefined"], ["slayer", () => typeof Slayer !== "undefined"], ["bishop", () => typeof Bishop !== "undefined"], ["monsters", () => typeof Monsters !== "undefined"], ["spellfx", () => typeof Spellfx !== "undefined"], ["environment", () => typeof Env !== "undefined"], ["bellringer", () => typeof BR !== "undefined"], ["knight", () => typeof CursedKnight !== "undefined"]],
     extra = [["menufx", () => !(window.HV_V && window.HV_V.menufx)], ["intro", () => !(window.HV_V && window.HV_V.intro)]], todo = want.filter(w => !w[1]()).map(w => w[0]).concat(extra.filter(w => w[1]()).map(w => w[0])), missing = [];
   if (!todo.length) return HV_boot();
   const next = () => { const n = todo.shift(); if (!n) { const hard = missing.filter(m => want.some(w => w[0] === m));

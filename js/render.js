@@ -5,6 +5,9 @@ function propBox(name, col) {   // where a prop sits in the world (shared by dra
   const p = PROPS[name], h = p.h, w = p.r[2] * h / p.r[3];
   return { x: col * CFG.T, y: p.hang ? CFG.CAMY + (p.chain ? 18 + (col * 7) % 24 : 0) : CFG.level.ground * CFG.T - h + 1, w, h };
 }
+function envOn() { return typeof Env !== "undefined" && Env.ready; }   // new environment art is optional: without it the original background is used
+function envBd() { return typeof Env !== "undefined" && Env.ready ? Env.bdMix() : 0; }   // how much an area backdrop is showing (0-1)
+function envLite() { return typeof Env !== "undefined" ? Env.lite() : false; }
 const Render = {
   ready: false,
   err(m) { const b = document.getElementById("err"); b.textContent = m; b.classList.remove("hidden"); },
@@ -76,17 +79,18 @@ const Render = {
   draw(w, p, es, cam, t) {
     const cx = this.cx, W = CFG.W, H = CFG.H, Y = CFG.CAMY, cm = Math.floor(cam), sh = Fx.shake > 0 && Fx.shakeOn ? Fx.shake * 8 : 0;
     cx.setTransform(3, 0, 0, 3, 0, 0); cx.save(); cx.translate(Math.round((Math.random() - .5) * sh), Math.round((Math.random() - .5) * sh));
-    cx.fillStyle = this.sky; cx.fillRect(-10, -10, W + 20, H + 20);
+    cx.fillStyle = this.sky; cx.fillRect(-10, -10, W + 20, H + 20); if (envOn()) Env.sky(cx, cam);
     const gy = CFG.level.ground * CFG.T - Y;
-    this.loop(this.img.bg_far, H / this.img.bg_far.height, 0.1, 0, cam);
-    this.loop(this.mid, 0.5, 0.3, 0, cam, 0.95, true);
+    this.loop(this.img.bg_far, H / this.img.bg_far.height, 0.1, 0, cam, envOn() ? 0.35 : 1);
+    if (envOn()) { Env.city(cx, cam); Env.towers(cx, cam); Env.backdrop(cx, cam, t, p); }
+    this.loop(this.mid, 0.5, 0.3, 0, cam, 0.95 * (1 - 0.85 * envBd()), true);
     cx.globalCompositeOperation = "lighter";   // slow shafts of dim light from the windows
     for (let i = 0; i < 3; i++) { const bx = ((i * 170 - cam * 0.3 + Math.sin(t * 0.2 + i) * 6) % (W + 120) + W + 120) % (W + 120) - 60, g = cx.createLinearGradient(bx, 0, bx + 40, H * 0.8); g.addColorStop(0, "rgba(200,85,61,.07)"); g.addColorStop(1, "rgba(200,85,61,0)");
       cx.fillStyle = g; cx.beginPath(); cx.moveTo(bx, 0); cx.lineTo(bx + 16, 0); cx.lineTo(bx + 62, H * 0.85); cx.lineTo(bx + 26, H * 0.85); cx.closePath(); cx.fill(); }
-    cx.globalCompositeOperation = "source-over"; this.loop(this.near, 0.5, 0.55, 0, cam, 0.85, true);
+    cx.globalCompositeOperation = "source-over"; if (envOn()) Env.shafts(cx, cam, t, p); this.loop(this.near, 0.5, 0.55, 0, cam, 0.85 * (1 - 0.85 * envBd()), true);
     cx.drawImage(this.tiles, cm * 2, Y * 2, W * 2, H * 2, 0, 0, W, H);
     cx.save(); cx.translate(0, -Y);
-    const lights = []; this.chancel(cm, t); this.props(cm, t, lights, w); this.world(w, cm, t);
+    const lights = []; this.chancel(cm, t); if (envOn()) { Env.update(cx, cm, t, p); Env.props(cx, cm, t, lights); } this.props(cm, t, lights, w); this.world(w, cm, t);
     for (const e of es) if (e.alive() && !e.chime) this.shade(e.x + e.w / 2 - cm, e.y + e.h, e.boss ? 16 : 9);
     if (p.ground && !p.dead) this.shade(p.x + p.w / 2 - cm, p.y + p.h, 8);
     for (const e of es) this.enemy(e, cm); Monsters.draw(this.cx, cm);
@@ -99,7 +103,7 @@ const Render = {
       const g = cx.createRadialGradient(fx, fy, 3, fx, fy, 90); g.addColorStop(0, "rgba(154,146,142,.09)"); g.addColorStop(1, "rgba(154,146,142,0)"); cx.fillStyle = g; cx.fillRect(fx - 90, fy - 45, 180, 90); }
     cx.fillStyle = "rgba(217,207,189,.3)";
     for (const m of this.motes) cx.fillRect(Math.floor(((m.x + t * m.s - cam * 0.5) % W + W) % W), Math.floor((m.y + Math.sin(t + m.s) * 4 + H) % H), 1, 1);
-    this.ash(cx, cam, t, p); this.fg(cx, cam, t);
+    this.ash(cx, cam, t, p); if (envOn()) { Env.mistFx(cx, cam, t, p); Env.particles(cx, cm); Env.fg(cx, cam, t); } else this.fg(cx, cam, t);
     cx.globalCompositeOperation = "lighter"; lights.push([p.x + 6 - cm, p.y + 10, 70, 0.2]);
     for (const [lx, ly0, r, a] of lights) { const ly = ly0 - Y, g = cx.createRadialGradient(lx, ly, 2, lx, ly, r); g.addColorStop(0, `rgba(200,85,61,${a})`); g.addColorStop(1, "rgba(0,0,0,0)"); cx.fillStyle = g; cx.fillRect(lx - r, ly - r, r * 2, r * 2); }
     cx.globalCompositeOperation = "source-over"; this.grading(cx, p, W, H);
@@ -131,9 +135,10 @@ const Render = {
     const cx = this.cx, D = ANIMS.player.dash, s = D.scale;
     for (const r of Fx.rings) { const k = 1 - r.life / r.d; cx.globalAlpha = (1 - k) * 0.8; cx.strokeStyle = r.c; cx.lineWidth = 1.5;
       cx.beginPath(); cx.ellipse(Math.round(r.x - cm), r.y, r.r + k * r.g, r.r * 2 + k * r.g * 0.5, 0, 0, 6.283); cx.stroke(); }
-    for (const g of Fx.ghosts) { const f = D.frames[g.f === undefined ? 1 : g.f], a = Math.min(0.8, g.life * 2.2), w = f[2] * s, h = f[3] * s;
+    for (const g of Fx.ghosts) { const f = D.frames[g.f === undefined ? 1 : g.f], a = Math.min(0.95, g.life * 2.6), w = f[2] * s, h = f[3] * s;
       cx.save(); cx.translate(Math.round(g.x + 6 - cm), Math.round(g.y + 26)); cx.scale(g.face, 1);
-      cx.globalAlpha = a * 0.55; cx.drawImage(this.rim, f[0], f[1], f[2], f[3], -f[4] * s - 1, -h * 1.04 + 1, w * 1.06, h * 1.04);
+      cx.globalAlpha = a * 0.9; cx.drawImage(this.rim, f[0], f[1], f[2], f[3], -f[4] * s - 1, -h * 1.04 + 1, w * 1.06, h * 1.04);
+      cx.globalCompositeOperation = "lighter"; cx.globalAlpha = a * 0.35; cx.drawImage(this.rim, f[0], f[1], f[2], f[3], -f[4] * s - 2, -h * 1.08 + 1, w * 1.12, h * 1.08); cx.globalCompositeOperation = "source-over";   // a faint crimson-bone glow around the shadow copy
       cx.globalAlpha = a; cx.drawImage(this.shadow, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h); cx.restore(); }
     cx.globalAlpha = 1;
   },
@@ -161,7 +166,7 @@ const Render = {
     else if (p.hurt > 0) { an = "hurt"; i = p.hurt > 0.12 ? 0 : 1; }
     else if (p.dodge >= 0) { an = "dash"; i = Math.min(2, Math.floor(p.dodge / CFG.player.dodge.dur * 3)); }
     else if (p.cast >= 0) { an = "cast"; const sd = Spells.def(p.castSpell); i = Math.min(5, Math.floor(p.cast / (sd ? sd.cast : 0.6) * 6)); }
-    else if (p.sp === 4 && p.atk >= 0) { an = "dash"; i = 2; }   // Shadow-Step Thrust uses the stretched dash pose
+    else if (p.weapon === "slayer" && p.sp === 4 && p.atk >= 0) { an = "dash"; i = 2; }   // Shadow-Step Thrust uses the stretched dash pose
     else if (p.atk >= 0) { an = "attack"; const m = p.move(); i = p.atk < m.from ? 0 : p.atk < m.to + 0.04 ? [5, 6, 7, 6][p.sp >= 0 || p.fin ? 3 : Math.min(2, p.combo)] : 5; }
     else if (p.chg > 0) { an = "attack"; i = 5; }   // holding the charge: calm stance, leaning back   // whip poses use the calm stance frames so the old sword arc is never drawn
     else if (!p.ground) { an = "jump"; i = p.vy < -250 ? 1 : p.vy < -80 ? 2 : p.vy < 80 ? 3 : 4; }
@@ -198,13 +203,13 @@ const Render = {
       case "appear": an = "notice"; pr = e.t / 0.3; break;
       default: an = "death"; pr = Math.min(0.99, e.t * 8 / H.death.frames.length);
     }
-    const a = H[an], n = a.frames.length, i = pr < 0 ? Math.floor(e.t * a.fps) % n : Math.max(0, Math.min(n - 1, Math.floor(pr * n))), s = a.scale * (e.sc || 1), f = a.frames[i], w = f[2] * s, h = f[3] * s;
+    const BRq = e.canRing && typeof BR !== "undefined" && BR.ready ? BR.pick(e, an, pr, d) : null, a = BRq ? BRq.a : H[an], n = a.frames.length, i = BRq ? BRq.i : pr < 0 ? Math.floor(e.t * a.fps) % n : Math.max(0, Math.min(n - 1, Math.floor(pr * n))), s = a.scale * (e.sc || 1), f = a.frames[i], w = f[2] * s, h = f[3] * s;
     cx.save(); cx.globalAlpha = e.st === "dead" ? Math.max(0, Math.min(1, 1 - (e.t - 1) / 0.6)) : (e.alpha === undefined ? 1 : e.alpha);
     cx.translate(Math.round(e.x + e.w / 2 - cm), Math.round(e.y + e.h)); cx.scale(e.face, 1); if (e.canRing) Bellfx.pose(cx, e, an);
-    cx.drawImage(A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h);
-    if (e.st === "windup") { cx.globalCompositeOperation = "lighter"; cx.globalAlpha = 0.2 * (0.5 + 0.5 * Math.sin(e.t * 28)); cx.drawImage(A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h); }   // pulsing tell before the swing
-    if (e.flash > 0) { cx.globalCompositeOperation = "lighter"; cx.globalAlpha = 0.6; cx.drawImage(A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h); }
-    if (e.canRing) { cx.globalAlpha = 1; Bellfx.glow(cx, e, f, s, h); }
+    cx.drawImage(a.img || A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h);
+    if (e.st === "windup") { cx.globalCompositeOperation = "lighter"; cx.globalAlpha = 0.2 * (0.5 + 0.5 * Math.sin(e.t * 28)); cx.drawImage(a.img || A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h); }   // pulsing tell before the swing
+    if (e.flash > 0) { cx.globalCompositeOperation = "lighter"; cx.globalAlpha = 0.6; cx.drawImage(a.img || A, f[0], f[1], f[2], f[3], -f[4] * s, -h + 1, w, h); }
+    if (e.canRing) { cx.globalAlpha = 1; Bellfx.glow(cx, e, f, s, h); if (typeof BR !== "undefined") BR.fx(e, f, s, h); }
     cx.restore(); if (e.canRing) Bellfx.wave(cx, e, cm);
     if (e.st === "windup" || e.st === "ringup") { cx.fillStyle = "#c8553d"; const x = Math.round(e.x + e.w / 2 - cm), k = e.sc || 1; cx.fillRect(x - 1, e.y - 40 * k, 2, 7); cx.fillRect(x - 1, e.y - 31 * k, 2, 2); }   // warning mark
   },
@@ -260,7 +265,7 @@ const Render = {
   },
   ash(cx, cam, t, p) {   // falling ash and rising embers in front of the scene; positions come from time, so there is nothing to update
     const W = CFG.W, H = CFG.H, A = this.flakes || (this.flakes = Array.from({ length: 34 }, (_, i) => ({ x: Math.random() * W, y: Math.random() * H, vx: 4 + Math.random() * 10, vy: 6 + Math.random() * 14, par: 0.6 + Math.random() * 0.7, em: i % 5 === 0 })));
-    for (const f of A) { const x = ((f.x + t * f.vx - cam * f.par) % (W + 20) + W + 20) % (W + 20) - 10, y = f.em ? H - ((f.y + t * f.vy * 1.4) % H) : (f.y + t * f.vy) % H, sway = Math.sin(t * 1.3 + f.x) * 2;
+    for (let ai = 0, an = envLite() ? 16 : A.length; ai < an; ai++) { const f = A[ai]; const x = ((f.x + t * f.vx - cam * f.par) % (W + 20) + W + 20) % (W + 20) - 10, y = f.em ? H - ((f.y + t * f.vy * 1.4) % H) : (f.y + t * f.vy) % H, sway = Math.sin(t * 1.3 + f.x) * 2;
       cx.globalAlpha = f.em ? 0.55 + 0.3 * Math.sin(t * 7 + f.x) : 0.3 + 0.12 * Math.sin(t * 2 + f.y); cx.fillStyle = f.em ? "#c8553d" : "#d9cfbd"; cx.fillRect(Math.round(x + sway), Math.round(y), f.em ? 1 : 1.2, 1); }
     cx.globalAlpha = 1;
   },
