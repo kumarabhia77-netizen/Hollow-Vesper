@@ -63,11 +63,11 @@
 <div id="err" class="hidden"></div>
 </div>
 <script src="js/config.js"></script><script src="js/save.js"></script><script src="js/input.js"></script><script src="js/sfx.js"></script><script src="js/music.js"></script><script src="js/spells.js"></script>
-<script src="js/world.js"></script><script src="js/entities.js"></script><script src="js/anims.js"></script><script src="js/whip.js"></script><script src="js/slayer.js"></script><script src="js/bishop.js"></script><script src="js/monsters.js"></script><script src="js/spellfx.js"></script><script src="js/render.js"></script><script src="js/touch.js"></script><script src="js/ui.js"></script><script src="js/menufx.js"></script><script src="js/intro.js"></script><script src="js/main.js"></script>
+<script src="js/world.js"></script><script src="js/entities.js"></script><script src="js/anims.js"></script><script src="js/whip.js"></script><script src="js/slayer.js"></script><script src="js/bishop.js"></script><script src="js/monsters.js"></script><script src="js/knight.js"></script><script src="js/spellfx.js"></script><script src="js/environment.js"></script><script src="js/bellringer.js"></script><script src="js/render.js"></script><script src="js/touch.js"></script><script src="js/ui.js"></script><script src="js/menufx.js"></script><script src="js/intro.js"></script><script src="js/main.js"></script>
 <script>
 // Safety check: every game file must be the newest version. If one is old or missing, say exactly which.
 (function () {
-  var need = { config: 10, save: 10, input: 10, sfx: 10, music: 10, spells: 10, world: 10, entities: 10, anims: 10, whip: 10, slayer: 10, bishop: 10, monsters: 10, spellfx: 10, render: 10, touch: 10, ui: 10, menufx: 10, intro: 10, main: 10 }, have = window.HV_V || {}, bad = [];
+  var need = { config: 10, save: 10, input: 10, sfx: 10, music: 10, spells: 10, world: 10, entities: 10, anims: 10, whip: 10, slayer: 10, bishop: 10, monsters: 10, knight: 10, spellfx: 10, environment: 10, bellringer: 10, render: 10, touch: 10, ui: 10, menufx: 10, intro: 10, main: 10 }, have = window.HV_V || {}, bad = [];
   for (var k in need) if (have[k] !== need[k]) bad.push("js/" + k + ".js (" + (have[k] === undefined ? "missing, broken or too old" : "version " + have[k] + ", needs " + need[k]) + ")");
   if (bad.length) { window.HV_MSG = "Please upload the newest: " + bad.join(", "); var e = document.getElementById("err"); e.textContent = window.HV_MSG; e.classList.remove("hidden"); var s = document.getElementById("start"); if (s) s.disabled = true; }
 })();
