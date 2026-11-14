@@ -96,3 +96,11 @@ button,select{font:inherit;color:#e3d6bd}
 #intro .intro-sub{position:absolute;left:6%;right:6%;bottom:12%;text-align:center;color:#d9cfbd;font-style:italic;font-size:2.8cqw;text-shadow:0 0 1.4cqw #000;opacity:0;transition:opacity .8s}#intro .intro-sub.big{font-style:normal;letter-spacing:.14em;font-size:3.6cqw}
 #intro .intro-skip{position:absolute;top:2cqw;right:2cqw;background:transparent;border:1px solid #5b5560;color:#8d8374;font:inherit;font-size:1.8cqw;padding:.5cqw 1.6cqw;cursor:pointer}
 @keyframes introPulse{0%,100%{opacity:.35}50%{opacity:1}}
+
+/* vibrant spell tiles: each spell has its own colour (--sc) */
+.mt{border:1px solid var(--sc,#8a6a52)!important;background:linear-gradient(160deg,color-mix(in srgb,var(--sc,#8a6a52) 28%,transparent),rgba(12,11,17,.86) 70%)!important}
+.mt img{filter:drop-shadow(0 0 .6cqw var(--sc,#c8553d))}.mt .nm{color:color-mix(in srgb,var(--sc,#e3d6bd) 45%,#fff)}
+.mt.sel{border-color:#fff3d0!important;box-shadow:0 0 1.8cqw var(--sc,#c8553d),inset 0 0 1.4cqw color-mix(in srgb,var(--sc,#c8553d) 40%,transparent)}
+.mt.locked,.mt.planned{filter:saturate(.45)}
+#mtabs button.act{background:linear-gradient(180deg,#a3303a,#6b1d24);border-color:#ff9a6a;color:#fff3d0}
+#mdetail .dh img{filter:drop-shadow(0 0 1cqw #ff9a6a)}
